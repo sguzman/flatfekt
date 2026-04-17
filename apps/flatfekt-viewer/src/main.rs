@@ -5,7 +5,7 @@ use flatfekt_config::{
   ConfigError,
   RootConfig
 };
-use flatfekt_runtime::Runtime;
+use flatfekt_runtime::run_bevy;
 use tracing::{
   info,
   warn
@@ -40,12 +40,10 @@ fn main() -> anyhow::Result<()> {
 
   let scene_file = flatfekt_schema::SceneFile::load_from_path(&scene_path)?;
   info!(path = %scene_path.display(), "loaded scene");
-  let _ = scene_file;
 
   ensure_cache_layout(&scene_path)?;
 
-  let rt = Runtime::new();
-  let _ = rt;
+  run_bevy(cfg, scene_file)?;
 
   Ok(())
 }

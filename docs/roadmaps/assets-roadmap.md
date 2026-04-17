@@ -13,9 +13,9 @@ Own how assets are referenced from TOML, resolved to paths, loaded/cached, reloa
 ## Milestones
 
 ### M0 — asset reference model v0.1
-- [ ] Define `AssetRef` type (logical id vs path) and TOML representation
-- [ ] Implement asset root directory config (`app.assets_dir`) and path safety rules
-- [ ] Implement image and font resolution and load hooks (enough for sprites/text)
+- [x] Define `AssetRef` type (logical id vs path) and TOML representation
+- [x] Implement asset root directory config (`app.assets_dir`) and path safety rules
+- [x] Implement image and font resolution and load hooks (enough for sprites/text)
 - [ ] Add `tracing` spans for asset resolution/load/reload
 
 ### M1 — caching and dedup

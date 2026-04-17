@@ -21,10 +21,10 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [x] Define top-level `scene` table layout and required fields
 - [x] Define stable `entity_id` type (string) and uniqueness rules
 - [ ] Define transform representation (2D position/rotation/scale; z-order if needed)
-- [ ] Define color representation (sRGB triples + alpha)
-- [ ] Define sprite spec (image ref + size + anchor)
-- [ ] Define text spec (string + font ref + size + alignment/anchor)
-- [ ] Define camera spec (2D camera params + clear color)
+- [x] Define color representation (sRGB triples + alpha)
+- [x] Define sprite spec (image ref + size + anchor)
+- [x] Define text spec (string + font ref + size + alignment/anchor)
+- [x] Define camera spec (2D camera params + clear color)
 - [x] Define schema validation rules and error messages (missing fields, bad refs, invalid ranges)
 
 ### M1 — defaults, templates, composition

@@ -1,12 +1,29 @@
 [scene]
 schema_version = "0.1"
 
+[scene.camera]
+x = 0.0
+y = 0.0
+zoom = 1.0
+
+[scene.camera.clear_color]
+r = 0.05
+g = 0.06
+b = 0.08
+a = 1.0
+
 [[scene.entities]]
 id = "title"
 
 [scene.entities.text]
 value = "flatfekt"
 size = 48.0
+
+[scene.entities.text.color]
+r = 1.0
+g = 1.0
+b = 1.0
+a = 1.0
 
 [scene.entities.transform]
 x = 0.0
@@ -20,8 +37,13 @@ id = "hint"
 value = "Wayland + Vulkan required. Scene is TOML-driven."
 size = 18.0
 
+[scene.entities.text.color]
+r = 0.85
+g = 0.88
+b = 0.92
+a = 1.0
+
 [scene.entities.transform]
 x = 0.0
 y = 60.0
 z = 0.0
-

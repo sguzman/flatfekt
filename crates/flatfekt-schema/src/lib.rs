@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::collections::HashSet;
 use std::path::{
   Path,
@@ -6,6 +8,42 @@ use std::path::{
 
 use serde::Deserialize;
 use tracing::instrument;
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum AssetRef {
+  Path { path: PathBuf },
+  Id { id: String },
+  String(String)
+}
+
+impl AssetRef {
+  pub fn as_path(
+    &self
+  ) -> Option<&Path> {
+    match self {
+      | AssetRef::Path {
+        path
+      } => Some(path.as_path()),
+      | AssetRef::String(s) => {
+        Some(Path::new(s))
+      }
+      | AssetRef::Id {
+        ..
+      } => None
+    }
+  }
+}
+
+#[derive(
+  Debug, Clone, Copy, Deserialize,
+)]
+pub struct ColorRgba {
+  pub r: f32,
+  pub g: f32,
+  pub b: f32,
+  pub a: Option<f32>
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum SceneError {
@@ -43,7 +81,23 @@ pub struct SceneFile {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Scene {
   pub schema_version: Option<String>,
+  pub camera: Option<CameraSpec>,
+  pub background:
+    Option<BackgroundSpec>,
   pub entities:       Vec<EntitySpec>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CameraSpec {
+  pub x:           Option<f32>,
+  pub y:           Option<f32>,
+  pub zoom:        Option<f32>,
+  pub clear_color: Option<ColorRgba>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BackgroundSpec {
+  pub clear_color: Option<ColorRgba>
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -67,16 +121,20 @@ pub struct Transform2d {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SpriteSpec {
-  pub image:  String,
+  pub image:  AssetRef,
   pub width:  Option<f32>,
-  pub height: Option<f32>
+  pub height: Option<f32>,
+  pub anchor: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct TextSpec {
-  pub value: String,
-  pub font:  Option<String>,
-  pub size:  Option<f32>
+  pub value:  String,
+  pub font:   Option<AssetRef>,
+  pub size:   Option<f32>,
+  pub color:  Option<ColorRgba>,
+  pub anchor: Option<String>,
+  pub align:  Option<String>
 }
 
 impl SceneFile {
@@ -132,6 +190,54 @@ impl Scene {
          empty"
           .to_owned()
       ));
+    }
+
+    if let Some(camera) = &self.camera {
+      if camera
+        .x
+        .is_some_and(|v| !v.is_finite())
+        || camera.y.is_some_and(|v| {
+          !v.is_finite()
+        })
+      {
+        return Err(
+          SceneError::Validate(
+            "scene.camera x/y must be \
+             finite"
+              .to_owned()
+          )
+        );
+      }
+      if let Some(zoom) = camera.zoom {
+        if !zoom.is_finite()
+          || zoom <= 0.0
+        {
+          return Err(
+            SceneError::Validate(
+              "scene.camera.zoom must \
+               be > 0"
+                .to_owned()
+            )
+          );
+        }
+      }
+      if let Some(c) =
+        camera.clear_color
+      {
+        validate_color(
+          "scene.camera.clear_color",
+          &c
+        )?;
+      }
+    }
+    if let Some(bg) = &self.background {
+      if let Some(c) = bg.clear_color {
+        validate_color(
+          "scene.background.\
+           clear_color",
+          &c
+        )?;
+      }
     }
 
     let mut ids =
@@ -213,11 +319,12 @@ impl Scene {
       if let Some(sprite) =
         &entity.sprite
       {
-        if sprite
-          .image
-          .trim()
-          .is_empty()
-        {
+        let path = sprite.image.as_path().ok_or_else(|| {
+          SceneError::Validate(format!(
+            "scene.entities[{idx}].sprite.image must be a path (id indirection not implemented yet)"
+          ))
+        })?;
+        if path.as_os_str().is_empty() {
           return Err(SceneError::Validate(format!(
                         "scene.entities[{idx}].sprite.image must not be empty"
                     )));
@@ -240,6 +347,17 @@ impl Scene {
                         "scene.entities[{idx}].sprite.height must be > 0"
                     )));
         }
+        if let Some(anchor) =
+          sprite.anchor.as_deref()
+        {
+          validate_anchor(
+            &format!(
+              "scene.entities[{idx}].\
+               sprite.anchor"
+            ),
+            anchor
+          )?;
+        }
       }
 
       if let Some(text) = &entity.text {
@@ -255,9 +373,120 @@ impl Scene {
                         "scene.entities[{idx}].text.size must be > 0"
                     )));
         }
+        if let Some(c) = text.color {
+          validate_color(
+            &format!(
+              "scene.entities[{idx}].\
+               text.color"
+            ),
+            &c
+          )?;
+        }
+        if let Some(anchor) =
+          text.anchor.as_deref()
+        {
+          validate_anchor(
+            &format!(
+              "scene.entities[{idx}].\
+               text.anchor"
+            ),
+            anchor
+          )?;
+        }
+        if let Some(align) =
+          text.align.as_deref()
+        {
+          validate_align(
+            &format!(
+              "scene.entities[{idx}].\
+               text.align"
+            ),
+            align
+          )?;
+        }
       }
     }
 
     Ok(())
   }
+}
+
+fn validate_color(
+  path: &str,
+  c: &ColorRgba
+) -> Result<(), SceneError> {
+  fn ok_chan(v: f32) -> bool {
+    v.is_finite()
+      && (0.0..=1.0).contains(&v)
+  }
+
+  if !ok_chan(c.r)
+    || !ok_chan(c.g)
+    || !ok_chan(c.b)
+  {
+    return Err(SceneError::Validate(
+      format!(
+        "{path} channels must be \
+         finite and within [0, 1]"
+      )
+    ));
+  }
+  if let Some(a) = c.a {
+    if !ok_chan(a) {
+      return Err(SceneError::Validate(
+        format!(
+          "{path}.a must be finite \
+           and within [0, 1]"
+        )
+      ));
+    }
+  }
+
+  Ok(())
+}
+
+fn validate_anchor(
+  path: &str,
+  a: &str
+) -> Result<(), SceneError> {
+  let ok = matches!(
+    a,
+    "center"
+      | "top_left"
+      | "top"
+      | "top_right"
+      | "left"
+      | "right"
+      | "bottom_left"
+      | "bottom"
+      | "bottom_right"
+  );
+  if !ok {
+    return Err(SceneError::Validate(
+      format!(
+        "{path} unsupported value \
+         {a:?}"
+      )
+    ));
+  }
+  Ok(())
+}
+
+fn validate_align(
+  path: &str,
+  a: &str
+) -> Result<(), SceneError> {
+  let ok = matches!(
+    a,
+    "left" | "center" | "right"
+  );
+  if !ok {
+    return Err(SceneError::Validate(
+      format!(
+        "{path} unsupported value \
+         {a:?}"
+      )
+    ));
+  }
+  Ok(())
 }

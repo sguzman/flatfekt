@@ -1,14 +1,20 @@
 [package]
-name = "flatfekt-runtime"
+name = "flatfekt-assets"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-thiserror.workspace = true
+anyhow.workspace = true
 tracing.workspace = true
-bevy.workspace = true
+thiserror.workspace = true
 
 flatfekt-config = { path = "../flatfekt-config" }
 flatfekt-schema = { path = "../flatfekt-schema" }
-flatfekt-assets = { path = "../flatfekt-assets", features = ["bevy"] }
+
+[features]
+bevy = ["dep:bevy"]
+
+[dependencies.bevy]
+workspace = true
+optional = true
