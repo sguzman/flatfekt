@@ -21,6 +21,16 @@ pub enum ConfigError {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct PlatformConfig {
+    pub unix_backend: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RenderConfig {
+    pub backend: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
     pub name: Option<String>,
     pub scene_path: Option<PathBuf>,
@@ -37,6 +47,8 @@ pub struct LoggingConfig {
 pub struct RootConfig {
     pub app: Option<AppConfig>,
     pub logging: Option<LoggingConfig>,
+    pub platform: Option<PlatformConfig>,
+    pub render: Option<RenderConfig>,
 }
 
 impl RootConfig {
@@ -56,3 +68,18 @@ impl RootConfig {
     }
 }
 
+impl RootConfig {
+    pub fn unix_backend(&self) -> &str {
+        self.platform
+            .as_ref()
+            .and_then(|p| p.unix_backend.as_deref())
+            .unwrap_or("wayland")
+    }
+
+    pub fn render_backend(&self) -> &str {
+        self.render
+            .as_ref()
+            .and_then(|r| r.backend.as_deref())
+            .unwrap_or("vulkan")
+    }
+}
