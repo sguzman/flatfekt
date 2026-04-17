@@ -140,10 +140,53 @@ pub struct Scene {
   pub timeline:
     Option<Vec<TimelineEvent>>,
   pub simulation: Option<SimRegionSpec>,
-  pub interaction:
-    Option<InteractionSpec>,
-  pub export: Option<ExportSpec>,
-  pub entities:       Vec<EntitySpec>
+  pub interaction: Option<InteractionSpec>,
+  pub export:      Option<ExportSpec>,
+  pub generators:  Option<Vec<GeneratorSpec>>,
+  pub entities:    Vec<EntitySpec>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct GeneratorSpec {
+  pub template:     String,
+  pub count:        u32,
+  pub distribution: DistributionSpec
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(
+  rename_all = "snake_case",
+  deny_unknown_fields
+)]
+pub enum DistributionSpec {
+  Point {
+    x: f32,
+    y: f32
+  },
+  Box {
+    x_min: f32,
+    y_min: f32,
+    x_max: f32,
+    y_max: f32
+  },
+  Circle {
+    x:      f32,
+    y:      f32,
+    radius: f32
+  }
 }
 
 #[derive(
