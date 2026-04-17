@@ -16,6 +16,7 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
 ### M0 — basic overlay
 - [ ] Add a toggleable help overlay (configurable text)
 - [ ] Add a minimal debug overlay showing fps + scene name + tick mode
+- [ ] Add an embedded control GUI (egui) for basic actions (play/pause/step/reset/toggles) behind a feature flag
 - [ ] Instrument UI updates with `tracing` only at boundaries (avoid per-frame spam)
 
 ### M1 — entity inspector (minimal)
@@ -29,4 +30,3 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
 ### M3 — advanced dev panels
 - [ ] Add config/scene reload status panel with last error display
 - [ ] Add performance panel (frame time, sim tick time, asset load stats)
-
