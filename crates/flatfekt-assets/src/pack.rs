@@ -23,10 +23,12 @@ pub fn load_pack(
   let manifest_path =
     spec.root.join("manifest.toml");
   if !manifest_path.exists() {
-    return Err(PackError::Manifest(format!(
-      "manifest.toml not found in {}",
-      spec.root.display()
-    )));
+    return Err(PackError::Manifest(
+      format!(
+        "manifest.toml not found in {}",
+        spec.root.display()
+      )
+    ));
   }
   tracing::info!(
     name = %spec.name,
@@ -40,9 +42,10 @@ pub fn load_pack(
     for entry in entries.flatten() {
       let path = entry.path();
       if path.is_file()
-        && path.extension().and_then(|e| {
-          e.to_str()
-        }) != Some("toml")
+        && path
+          .extension()
+          .and_then(|e| e.to_str())
+          != Some("toml")
       {
         assets.push(path);
       }

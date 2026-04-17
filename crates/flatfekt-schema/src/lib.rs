@@ -140,7 +140,64 @@ pub struct Scene {
   pub timeline:
     Option<Vec<TimelineEvent>>,
   pub simulation: Option<SimRegionSpec>,
+  pub interaction:
+    Option<InteractionSpec>,
+  pub export: Option<ExportSpec>,
   pub entities:       Vec<EntitySpec>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ExportSpec {
+  pub output_dir:
+    Option<std::path::PathBuf>,
+  pub screenshot: Option<bool>,
+  pub recording:  Option<RecordingSpec>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingSpec {
+  pub fps:      u32,
+  pub duration: f32
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct InteractionSpec {
+  pub actions: Vec<ActionBinding>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ActionBinding {
+  pub action: String,
+  pub keys:   Vec<String>,
+  pub mouse:  Option<String>
 }
 
 #[derive(
@@ -245,19 +302,69 @@ pub struct BackgroundSpec {
 )]
 #[serde(deny_unknown_fields)]
 pub struct EntitySpec {
-  pub id:         String,
-  pub extends:    Option<String>,
+  pub id:          String,
+  pub extends:     Option<String>,
   pub activation:
     Option<ActivationSpec>,
-  pub tags:       Option<Vec<String>>,
-  pub transform:  Option<Transform2d>,
-  pub sprite:     Option<SpriteSpec>,
-  pub text:       Option<TextSpec>,
-  pub shape:      Option<ShapeSpec>,
-  pub physics:    Option<PhysicsSpec>,
-  pub collider:   Option<ColliderSpec>,
+  pub tags:        Option<Vec<String>>,
+  pub transform:   Option<Transform2d>,
+  pub sprite:      Option<SpriteSpec>,
+  pub text:        Option<TextSpec>,
+  pub shape:       Option<ShapeSpec>,
+  pub physics:     Option<PhysicsSpec>,
+  pub collider:    Option<ColliderSpec>,
   pub particles:
-    Option<ParticleSystemSpec>
+    Option<ParticleSystemSpec>,
+  pub interaction:
+    Option<EntityInteractionSpec>,
+  pub agent:       Option<AgentSpec>,
+  pub script: Option<ScriptHookSpec>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct AgentSpec {
+  pub kind:   String,
+  #[schemars(skip)]
+  pub params: Option<
+    std::collections::HashMap<
+      String,
+      toml::Value
+    >
+  >
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ScriptHookSpec {
+  pub on_spawn: Option<String>,
+  pub on_tick:  Option<String>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct EntityInteractionSpec {
+  pub selectable: Option<bool>,
+  pub draggable:  Option<bool>,
+  pub on_click:   Option<String>
 }
 
 #[derive(
@@ -395,7 +502,8 @@ pub struct TextSpec {
   pub color:   Option<ColorRgba>,
   pub anchor:  Option<String>,
   pub align:   Option<String>,
-  pub effects: Option<Vec<TextEffectSpec>>
+  pub effects:
+    Option<Vec<TextEffectSpec>>
 }
 
 #[derive(

@@ -13,18 +13,18 @@ Own external control surfaces: keyboard/mouse/gamepad bindings, clickable entiti
 ## Milestones
 
 ### M0 — basic input mapping
-- [ ] Implement “action map” schema in TOML (actions bound to keys/buttons)
-- [ ] Provide built-in actions: quit, reset, toggle overlay, pause, step
-- [ ] Provide built-in actions: play, rewind, fast-forward, seek (when enabled by scene policy)
-- [ ] Add `tracing` events on action dispatch (action name, source)
+- [x] Implement “action map” schema in TOML (actions bound to keys/buttons)
+- [x] Provide built-in actions: quit, reset, toggle overlay, pause, step
+- [x] Provide built-in actions: play, rewind, fast-forward, seek (when enabled by scene policy)
+- [x] Add `tracing` events on action dispatch (action name, source)
 
 ### M1 — pointing and selection
-- [ ] Implement picking (mouse hit test) for 2D entities with selectable components
-- [ ] Implement click/drag events routed to runtime hooks
+- [x] Implement picking (mouse hit test) for 2D entities with selectable components
+- [x] Implement click/drag events routed to runtime hooks
 
 ### M2 — external control channel (optional)
-- [ ] Add a CLI command channel (stdin or file-based) behind a feature flag
-- [ ] Add a local IPC option (e.g., TCP/UDS) behind a feature flag with explicit security stance
+- [x] Add a CLI command channel (stdin or file-based) behind a feature flag
+- [x] Add a local IPC option (e.g., TCP/UDS) behind a feature flag with explicit security stance
 
 ### M3 — recording input for replay
-- [ ] Add input event recording (timestamped) feeding into `export-roadmap.md` replay
+- [x] Add input event recording (timestamped) feeding into `export-roadmap.md` replay

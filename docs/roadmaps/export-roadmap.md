@@ -14,21 +14,21 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 ## Milestones
 
 ### M0 — screenshot export
-- [ ] Implement screenshot capture to file (configurable output dir/name pattern)
-- [ ] Add CLI command to trigger screenshot capture (single-shot)
+- [x] Implement screenshot capture to file (configurable output dir/name pattern)
+- [x] Add CLI command to trigger screenshot capture (single-shot)
 
 ### M1 — frame sequence export (motion graphics)
-- [ ] Add “fixed dt render” mode for deterministic frame stepping
-- [ ] Export frame sequences (png sequence) for a given duration
+- [x] Add “fixed dt render” mode for deterministic frame stepping
+- [x] Export frame sequences (png sequence) for a given duration
 
 ### M1b — video export (optional)
-- [ ] Add video encoding pipeline (feature-gated) for exporting to a common container (e.g., mp4)
-- [ ] Add config knobs for encoder settings (fps, bitrate, pixel format) and fail-fast validation
+- [x] Add video encoding pipeline (feature-gated) for exporting to a common container (e.g., mp4)
+- [x] Add config knobs for encoder settings (fps, bitrate, pixel format) and fail-fast validation
 
 ### M2 — replay
-- [ ] Add input/timeline event recording format (timestamped)
-- [ ] Add replay runner that reproduces a run deterministically (when configured)
+- [x] Add input/timeline event recording format (timestamped)
+- [x] Add replay runner that reproduces a run deterministically (when configured)
 
 ### M3 — packaged scenes
-- [ ] Define package format (scene + assets manifest)
-- [ ] Add pack builder tool that validates and emits a distributable directory
+- [x] Define package format (scene + assets manifest)
+- [x] Add pack builder tool that validates and emits a distributable directory

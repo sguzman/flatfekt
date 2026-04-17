@@ -185,7 +185,10 @@ pub struct AssetsCacheRes(
   pub AssetCache
 );
 
+pub mod agents;
 pub mod animation;
+pub mod export;
+pub mod interaction;
 pub mod render_effects;
 pub mod simulation;
 
@@ -261,6 +264,20 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_observer(simulation::gravity_system)
       .add_observer(simulation::sim_control_system)
+      .insert_resource(interaction::ActionMap::default())
+      .insert_resource(export::ExportSettings::default())
+      .insert_resource(export::ReplayBuffer::default())
+      .add_systems(
+        Update,
+        (
+          interaction::input_system,
+          interaction::picking_system,
+          agents::agent_tick_system,
+          agents::scripting_system,
+          export::export_system,
+          export::replay_system
+        )
+      )
       .add_systems(
         Update,
         (
@@ -929,7 +946,8 @@ fn spawn_text(
       defaults.and_then(|d| {
         d.text_anchor.as_deref()
       })
-    }) {
+    })
+  {
     entity
       .insert(anchor_from_str(anchor));
   }
