@@ -21,6 +21,10 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 - [ ] Add “fixed dt render” mode for deterministic frame stepping
 - [ ] Export frame sequences (png sequence) for a given duration
 
+### M1b — video export (optional)
+- [ ] Add video encoding pipeline (feature-gated) for exporting to a common container (e.g., mp4)
+- [ ] Add config knobs for encoder settings (fps, bitrate, pixel format) and fail-fast validation
+
 ### M2 — replay
 - [ ] Add input/timeline event recording format (timestamped)
 - [ ] Add replay runner that reproduces a run deterministically (when configured)
@@ -28,4 +32,3 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 ### M3 — packaged scenes
 - [ ] Define package format (scene + assets manifest)
 - [ ] Add pack builder tool that validates and emits a distributable directory
-

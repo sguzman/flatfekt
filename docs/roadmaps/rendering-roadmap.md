@@ -29,6 +29,10 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 - [ ] Add simple shader/material hooks (optional; feature-gated)
 - [ ] Add layered post-processing pipeline hooks (optional; future-ready)
 
+## Effect integration
+- [ ] Define TOML-facing effect binding model (per-entity and/or global passes)
+- [ ] Add WGSL effect material example (minimal) and ensure it loads from TOML refs
+
 ### M3 — offscreen rendering and capture
 - [ ] Add render-to-texture support for compositing
 - [ ] Add screenshot capture API (used by `export-roadmap.md`)
@@ -38,4 +42,3 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 ### Deterministic draw ordering
 - [ ] Define stable sorting key for renderables (layer, z, entity_id tie-break)
 - [ ] Add tests verifying ordering is deterministic given the same scene input
-

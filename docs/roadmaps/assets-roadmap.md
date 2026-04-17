@@ -30,3 +30,25 @@ Own how assets are referenced from TOML, resolved to paths, loaded/cached, reloa
 - [ ] Define pack layout (directory manifest) and implement loading from a pack root
 - [ ] Add pack validation tooling (belongs to tooling but implemented here)
 
+## Format support (grouped by type)
+
+### Raster images
+- [ ] Support common raster image formats for sprites (png, jpg/jpeg, webp; others as feasible)
+- [ ] Add config-driven image decode policy (max dimensions / max bytes; fail-fast vs warn)
+
+### Vector images (SVG)
+- [ ] Add SVG asset support via rasterization pipeline (feature-gated)
+- [ ] Add SVG rasterization config (target pixels-per-unit, max size, cache keying)
+
+### Video
+- [ ] Add video asset abstraction (decode backend feature-gated)
+- [ ] Add “video as texture” playback pipeline (decode -> upload -> sprite)
+- [ ] Add video policy knobs (max resolution/fps, buffering strategy, audio handling stance)
+
+### Shaders (WGSL)
+- [ ] Support WGSL shader assets (materials/effects) referenced from TOML
+- [ ] Add shader compilation/validation error reporting with actionable paths
+- [ ] Add shader hot-reload integration (ties into runtime hot reload)
+
+### Audio (future)
+- [ ] Add audio asset reference model (formats + policy knobs) behind a feature flag
