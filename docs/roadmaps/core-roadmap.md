@@ -15,11 +15,12 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 - Project-wide observability conventions (`tracing`).
 
 ## Dependency rules (initial)
-- [ ] Publish and enforce crate dependency DAG (no cycles; `*_runtime` depends on `*_schema`, never vice versa)
+- [x] Publish and enforce crate dependency DAG (no cycles; `*_runtime` depends on `*_schema`, never vice versa)
   - [x] Instantiate a Cargo workspace with `crates/` and `apps/` members
   - [x] Add initial engine crates: config + schema + runtime
   - [x] Add initial runner app crate
   - [x] Add an explicit “allowed dependencies” document/table and keep it current
+  - [x] Add an automated workspace dependency rule check (tests)
 - [x] Define “engine crates” vs “apps/examples” (apps may depend on engine crates; engine crates must not depend on apps)
 - [x] Define which crates are allowed to touch Bevy types directly (prefer keeping “schema” crates Bevy-free)
 
@@ -40,18 +41,18 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 - [x] Add a small “engine bootstrap” app demonstrating config load + tracing init + scene load
 
 ### M2 — determinism and stability
-- [ ] Define determinism tiering (deterministic sim mode vs “best-effort realtime” mode)
-- [ ] Add deterministic RNG policy (seed routing; no hidden entropy sources)
-- [ ] Add config schema versioning policy (semantics, not semver)
+- [x] Define determinism tiering (deterministic sim mode vs “best-effort realtime” mode)
+- [x] Add deterministic RNG policy (seed routing; no hidden entropy sources)
+- [x] Add config schema versioning policy (semantics, not semver)
 
 ### M3 — long-term hygiene
-- [ ] Add compatibility policy for scene format (backward-compat windows, migration tooling hooks)
-- [ ] Define performance budget instrumentation conventions (frame time, sim tick, asset load)
+- [x] Add compatibility policy for scene format (backward-compat windows, migration tooling hooks)
+- [x] Define performance budget instrumentation conventions (frame time, sim tick, asset load)
 
 ## Config control-pane policy
-- [ ] Define “must be config” vs “may be hardcoded” rules in `docs/architecture.md`
+- [x] Define “must be config” vs “may be hardcoded” rules in `docs/architecture.md`
 - [x] Add `flatfekt.toml` sample with comments for all implemented knobs
-- [ ] Ensure knobs are centralized: no gameplay/scene policy magic numbers outside config without explicit rationale
+- [x] Ensure knobs are centralized: no gameplay/scene policy magic numbers outside config without explicit rationale
 
 ## Operational directories and run modes
 - [x] Add `app.mode` config (`dev`|`prod`) and wire it to operational behavior
@@ -60,5 +61,5 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 - [x] Create per-scene cache directories under `.cache/flatfekt/scene/<scene>/` for derived artifacts
 
 ## Open design questions
-- [ ] Decide whether the scene format is one TOML file or a root + includes (directory packs)
-- [ ] Decide whether Bevy schedule is authoritative, or engine defines its own schedule sets
+- [x] Decide whether the scene format is one TOML file or a root + includes (directory packs)
+- [x] Decide whether Bevy schedule is authoritative, or engine defines its own schedule sets
