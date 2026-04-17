@@ -68,6 +68,11 @@ Rules:
   - Preferred verification: `cargo fmt` and `cargo test`.
   - If a verification step cannot be run, state that explicitly and why.
 
+## Commit messages
+
+- Commit messages are handled by the repo owner (for example via VS Code tooling).
+- Do not generate commit messages in assistant responses unless explicitly asked.
+
 
 ## Safety and quality bars
 
@@ -75,4 +80,3 @@ Rules:
 - Avoid `unwrap()`/`expect()` in engine paths; use explicit errors with context.
 - Prefer explicit types when it improves readability.
 - Favor deterministic behavior when a policy exists (ordering, IDs, stable sorting keys).
-

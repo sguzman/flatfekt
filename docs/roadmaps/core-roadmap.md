@@ -29,6 +29,7 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 ### M0 — repository contract exists
 - [x] Create root `docs/architecture.md` with subsystem map and boundaries
 - [x] Add root `AGENTS.md` with contributor/agent operating rules (roadmaps, tranches, config control pane, and build verification)
+- [x] Update `AGENTS.md` to remove assistant commit-message generation (repo owner handles commits/messages)
 - [x] Define a single config entrypoint (`flatfekt.toml`) and lookup rules (cwd, env override)
   - [x] Support explicit config path override via `FLATFEKT_CONFIG`
   - [x] Support config file in repository working directory (e.g., `./flatfekt.toml`)

@@ -336,7 +336,6 @@ fn init_timeline_clock(
 #[instrument(level = "debug", skip_all)]
 fn timeline_driver(
   time: Res<Time>,
-  cfg: Res<ConfigRes>,
   mut clock: ResMut<TimelineClock>
 ) {
   if !clock.enabled {
@@ -354,12 +353,7 @@ fn timeline_driver(
     return;
   }
 
-  let dt =
-    if cfg.0.timeline_deterministic() {
-      clock.dt_secs
-    } else {
-      time.delta_secs()
-    };
+  let dt = time.delta_secs();
 
   if dt.is_finite() && dt > 0.0 {
     clock.accumulator_secs += dt;
