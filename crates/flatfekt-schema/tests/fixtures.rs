@@ -3,7 +3,10 @@ use std::path::{
   PathBuf
 };
 
-use flatfekt_schema::{SceneFile, ScenePatch};
+use flatfekt_schema::{
+  SceneFile,
+  ScenePatch
+};
 
 fn repo_root() -> PathBuf {
   let here = Path::new(env!(
@@ -87,24 +90,23 @@ fn all_scene_fixtures_load_or_fail_as_expected()
   }
 }
 
-// ── Patch fixture tests ──────────────────
+// ── Patch fixture tests
+// ──────────────────
 
-fn load_patch(name: &str) -> ScenePatch {
+fn load_patch(
+  name: &str
+) -> ScenePatch {
   let path = repo_root().join(format!(
     "tests/fixtures/patches/{name}"
   ));
   let raw =
     std::fs::read_to_string(&path)
       .unwrap_or_else(|e| {
-        panic!(
-          "read patch {name}: {e}"
-        )
+        panic!("read patch {name}: {e}")
       });
   toml::from_str::<ScenePatch>(&raw)
     .unwrap_or_else(|e| {
-      panic!(
-        "parse patch {name}: {e}"
-      )
+      panic!("parse patch {name}: {e}")
     })
 }
 
@@ -122,17 +124,24 @@ fn patch_remove_entity_deserializes() {
   let p =
     load_patch("remove_entity.toml");
   assert!(
-    matches!(p, ScenePatch::Remove { .. }),
+    matches!(
+      p,
+      ScenePatch::Remove { .. }
+    ),
     "expected Remove, got {p:?}"
   );
 }
 
 #[test]
-fn patch_update_transform_deserializes() {
+fn patch_update_transform_deserializes()
+{
   let p =
     load_patch("update_transform.toml");
   assert!(
-    matches!(p, ScenePatch::Update { .. }),
+    matches!(
+      p,
+      ScenePatch::Update { .. }
+    ),
     "expected Update, got {p:?}"
   );
 }
@@ -144,7 +153,8 @@ fn patch_invalid_op_rejected() {
      invalid_op.toml"
   );
   let raw =
-    std::fs::read_to_string(path).unwrap();
+    std::fs::read_to_string(path)
+      .unwrap();
   let res =
     toml::from_str::<ScenePatch>(&raw);
   assert!(
@@ -159,12 +169,18 @@ fn patch_add_applies_to_scene() {
     "tests/fixtures/scenes/demo.toml"
   );
   let mut scene =
-    SceneFile::load_from_path(&scene_path)
-      .expect("demo scene")
-      .scene;
+    SceneFile::load_from_path(
+      &scene_path
+    )
+    .expect("demo scene")
+    .scene;
   let before = scene.entities.len();
-  let patch = load_patch("add_entity.toml");
-  if let ScenePatch::Add { entity } = patch {
+  let patch =
+    load_patch("add_entity.toml");
+  if let ScenePatch::Add {
+    entity
+  } = patch
+  {
     scene.entities.push(entity);
   }
   assert_eq!(
@@ -180,18 +196,21 @@ fn patch_remove_applies_to_scene() {
     "tests/fixtures/scenes/demo.toml"
   );
   let mut scene =
-    SceneFile::load_from_path(&scene_path)
-      .expect("demo scene")
-      .scene;
+    SceneFile::load_from_path(
+      &scene_path
+    )
+    .expect("demo scene")
+    .scene;
   let before = scene.entities.len();
   let patch =
     load_patch("remove_entity.toml");
-  if let ScenePatch::Remove { entity_id } =
-    patch
+  if let ScenePatch::Remove {
+    entity_id
+  } = patch
   {
-    scene.entities.retain(|e| {
-      e.id != entity_id
-    });
+    scene
+      .entities
+      .retain(|e| e.id != entity_id);
   }
   assert!(
     scene.entities.len() < before,

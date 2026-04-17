@@ -1,12 +1,15 @@
 use std::path::PathBuf;
+
 use flatfekt_schema::AssetPackSpec;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PackError {
-  #[error("failed to load pack manifest: {0}")]
+  #[error(
+    "failed to load pack manifest: {0}"
+  )]
   Manifest(String),
   #[error("pack root not found: {0}")]
-  NotFound(PathBuf),
+  NotFound(PathBuf)
 }
 
 pub fn load_pack_stub(

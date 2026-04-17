@@ -1,4 +1,4 @@
 #![forbid(unsafe_code)]
 
-pub mod resolve;
 pub mod pack;
+pub mod resolve;

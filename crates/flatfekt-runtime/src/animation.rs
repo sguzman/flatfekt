@@ -90,7 +90,9 @@ pub struct TextLetterAnimation {
   pub start_time: f32
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+  Debug, Clone, Copy, PartialEq, Eq,
+)]
 pub enum LetterEffectKind {
   Wave,
   Jitter,
@@ -742,22 +744,29 @@ pub fn update_tweens(
 #[instrument(level = "trace", skip_all)]
 pub fn update_typewriter(
   clock: Res<crate::TimelineClock>,
-  mut query: Query<(&TypewriterEffect, &mut Text2d)>
+  mut query: Query<(
+    &TypewriterEffect,
+    &mut Text2d
+  )>
 ) {
   if !clock.enabled || !clock.playing {
     return;
   }
   let t_secs = clock.t_secs;
-  for (effect, mut text) in query.iter_mut() {
-    let elapsed = t_secs - effect.start_time;
+  for (effect, mut text) in
+    query.iter_mut()
+  {
+    let elapsed =
+      t_secs - effect.start_time;
     if elapsed < 0.0 {
       if !text.0.is_empty() {
         text.0 = String::new();
       }
       continue;
     }
-    let char_count =
-      (elapsed * effect.chars_per_sec) as usize;
+    let char_count = (elapsed
+      * effect.chars_per_sec)
+      as usize;
     let new_val = effect
       .full_text
       .chars()

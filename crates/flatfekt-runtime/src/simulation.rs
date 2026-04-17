@@ -146,13 +146,17 @@ pub fn simulation_driver(
   }
 }
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(
+  Component, Debug, Clone, Default,
+)]
 pub struct PhysicsBody {
   pub velocity: Vec2,
   pub mass:     f32
 }
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(
+  Component, Debug, Clone, Default,
+)]
 pub struct EntityHealth {
   pub current: f32,
   pub max:     f32
@@ -161,13 +165,65 @@ pub struct EntityHealth {
 #[instrument(level = "trace", skip_all)]
 pub fn gravity_system(
   tick: On<SimTick>,
-  mut query: Query<(&mut PhysicsBody, &mut Transform)>
+  mut query: Query<(
+    &mut PhysicsBody,
+    &mut Transform
+  )>
 ) {
   let dt = tick.event().dt_secs;
   // Stub gravity vector
   let gravity = Vec2::new(0.0, -9.81);
-  for (mut body, mut tf) in query.iter_mut() {
+  for (mut body, mut tf) in
+    query.iter_mut()
+  {
     body.velocity += gravity * dt;
-    tf.translation += body.velocity.extend(0.0) * dt;
+    tf.translation +=
+      body.velocity.extend(0.0) * dt;
+  }
+}
+
+#[derive(
+  bevy::prelude::Event, Clone, Debug,
+)]
+pub enum SimControl {
+  Pause,
+  Play,
+  Step,
+  Reset
+}
+
+#[instrument(level = "info", skip_all)]
+pub fn sim_control_system(
+  control: On<SimControl>,
+  mut clock: ResMut<SimulationClock>
+) {
+  match control.event() {
+    | SimControl::Pause => {
+      clock.playing = false;
+      tracing::info!(
+        "simulation paused"
+      );
+    }
+    | SimControl::Play => {
+      clock.playing = true;
+      tracing::info!(
+        "simulation playing"
+      );
+    }
+    | SimControl::Step => {
+      clock.accumulator_secs +=
+        clock.dt_secs;
+      tracing::info!(
+        "simulation stepped"
+      );
+    }
+    | SimControl::Reset => {
+      clock.t_secs = 0.0;
+      clock.steps_total = 0;
+      clock.accumulator_secs = 0.0;
+      tracing::info!(
+        "simulation reset"
+      );
+    }
   }
 }
