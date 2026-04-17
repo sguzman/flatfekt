@@ -18,6 +18,9 @@ pub enum ConfigError {
         #[source]
         source: toml::de::Error,
     },
+
+    #[error("config validation failed: {0}")]
+    Validate(String),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -64,6 +67,7 @@ impl RootConfig {
             path: path.to_path_buf(),
             source,
         })?;
+        cfg.validate()?;
         Ok(cfg)
     }
 }
@@ -81,5 +85,53 @@ impl RootConfig {
             .as_ref()
             .and_then(|r| r.backend.as_deref())
             .unwrap_or("vulkan")
+    }
+
+    #[instrument(level = "info", skip_all)]
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        if let Some(app) = &self.app {
+            if let Some(scene_path) = &app.scene_path {
+                if scene_path.as_os_str().is_empty() {
+                    return Err(ConfigError::Validate(
+                        "app.scene_path must not be empty".to_owned(),
+                    ));
+                }
+            }
+            if let Some(assets_dir) = &app.assets_dir {
+                if assets_dir.as_os_str().is_empty() {
+                    return Err(ConfigError::Validate(
+                        "app.assets_dir must not be empty".to_owned(),
+                    ));
+                }
+            }
+        }
+
+        if self.unix_backend() != "wayland" {
+            return Err(ConfigError::Validate(format!(
+                "unsupported platform.unix_backend {:?}; expected \"wayland\"",
+                self.unix_backend()
+            )));
+        }
+        if self.render_backend() != "vulkan" {
+            return Err(ConfigError::Validate(format!(
+                "unsupported render.backend {:?}; expected \"vulkan\"",
+                self.render_backend()
+            )));
+        }
+
+        if let Some(logging) = &self.logging {
+            if let Some(level) = &logging.level {
+                let level = level.as_str();
+                let ok = matches!(level, "trace" | "debug" | "info" | "warn" | "error");
+                if !ok {
+                    return Err(ConfigError::Validate(format!(
+                        "unsupported logging.level {:?}; expected one of trace|debug|info|warn|error",
+                        level
+                    )));
+                }
+            }
+        }
+
+        Ok(())
     }
 }

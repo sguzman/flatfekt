@@ -20,8 +20,8 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
 ## Milestones
 
 ### M0 — bootstrap runner
-- [ ] Implement `flatfekt.toml` load + validate at startup (fail fast with clear errors)
-- [ ] Implement scene TOML load + validate at startup
+- [x] Implement `flatfekt.toml` load + validate at startup (fail fast with clear errors)
+- [x] Implement scene TOML load + validate at startup
 - [ ] Implement instantiation of: camera, sprites, text, basic transforms
 - [ ] Add structured `tracing` spans around config load, scene load, instantiate
 
@@ -49,4 +49,3 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
 ### Error policy
 - [ ] Convert loader failures into structured errors with context (file path, field path)
 - [ ] Add “warn and continue” policy for non-fatal reload errors (configurable)
-

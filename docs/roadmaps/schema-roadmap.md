@@ -18,14 +18,14 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 ## Milestones
 
 ### M0 — minimal scene v0.1
-- [ ] Define top-level `scene` table layout and required fields
-- [ ] Define stable `entity_id` type (string) and uniqueness rules
+- [x] Define top-level `scene` table layout and required fields
+- [x] Define stable `entity_id` type (string) and uniqueness rules
 - [ ] Define transform representation (2D position/rotation/scale; z-order if needed)
 - [ ] Define color representation (sRGB triples + alpha)
 - [ ] Define sprite spec (image ref + size + anchor)
 - [ ] Define text spec (string + font ref + size + alignment/anchor)
 - [ ] Define camera spec (2D camera params + clear color)
-- [ ] Define schema validation rules and error messages (missing fields, bad refs, invalid ranges)
+- [x] Define schema validation rules and error messages (missing fields, bad refs, invalid ranges)
 
 ### M1 — defaults, templates, composition
 - [ ] Add `defaults` table for common settings (fonts, colors, anchor defaults)
@@ -57,4 +57,3 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 ### Documentation artifacts (verifiable)
 - [ ] Add a machine-checked schema doc generator (e.g., emit Markdown from Rust types) behind `tooling`
 - [ ] Add example TOML fixtures used by tests (kept under `tests/fixtures/`)
-

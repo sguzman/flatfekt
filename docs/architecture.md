@@ -28,3 +28,6 @@ Typed project configuration that selects scene entrypoints, asset roots, logging
 - All subsystem boundaries emit structured events/spans via `tracing`.
 - Logging level/filter are controlled via config and/or environment overrides.
 
+## Policy: config + scenes are TOML-first
+Scenes and scene-internal state are controlled via TOML. Project behavior, policy, feature flags, and tunables are centralized in `flatfekt.toml` (control pane).
+

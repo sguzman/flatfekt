@@ -19,7 +19,7 @@ Define the project constitution: workspace boundaries, dependency rules, determi
   - [x] Instantiate a Cargo workspace with `crates/` and `apps/` members
   - [x] Add initial engine crates: config + schema + runtime
   - [x] Add initial runner app crate
-  - [ ] Add an explicit “allowed dependencies” document/table and keep it current
+  - [x] Add an explicit “allowed dependencies” document/table and keep it current
 - [x] Define “engine crates” vs “apps/examples” (apps may depend on engine crates; engine crates must not depend on apps)
 - [ ] Define which crates are allowed to touch Bevy types directly (prefer keeping “schema” crates Bevy-free)
 
@@ -27,9 +27,9 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 
 ### M0 — repository contract exists
 - [x] Create root `docs/architecture.md` with subsystem map and boundaries
-- [ ] Define a single config entrypoint (`flatfekt.toml`) and lookup rules (cwd, env override)
-- [ ] Define error-handling rules (use `thiserror` + `anyhow` boundaries; never `unwrap()` in engine paths)
-- [ ] Define `tracing` policy (event fields, span boundaries, per-subsystem targets)
+- [x] Define a single config entrypoint (`flatfekt.toml`) and lookup rules (cwd, env override)
+- [x] Define error-handling rules (use `thiserror` + `anyhow` boundaries; never `unwrap()` in engine paths)
+- [x] Define `tracing` policy (event fields, span boundaries, per-subsystem targets)
 
 ### M1 — conventions enforced in code
 - [ ] Add `deny`/`warn` lints in `Cargo.toml` or `.cargo/config.toml` (minimal, practical)
@@ -47,7 +47,7 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 
 ## Config control-pane policy
 - [ ] Define “must be config” vs “may be hardcoded” rules in `docs/architecture.md`
-- [ ] Add `flatfekt.toml` sample with comments for all implemented knobs
+- [x] Add `flatfekt.toml` sample with comments for all implemented knobs
 - [ ] Ensure knobs are centralized: no gameplay/scene policy magic numbers outside config without explicit rationale
 
 ## Open design questions

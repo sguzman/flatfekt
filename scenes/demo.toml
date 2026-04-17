@@ -1,0 +1,27 @@
+[scene]
+schema_version = "0.1"
+
+[[scene.entities]]
+id = "title"
+
+[scene.entities.text]
+value = "flatfekt"
+size = 48.0
+
+[scene.entities.transform]
+x = 0.0
+y = 120.0
+z = 0.0
+
+[[scene.entities]]
+id = "hint"
+
+[scene.entities.text]
+value = "Wayland + Vulkan required. Scene is TOML-driven."
+size = 18.0
+
+[scene.entities.transform]
+x = 0.0
+y = 60.0
+z = 0.0
+

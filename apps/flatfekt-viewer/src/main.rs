@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use flatfekt_config::RootConfig;
+use flatfekt_config::{ConfigError, RootConfig};
 use flatfekt_runtime::Runtime;
 use tracing::{info, warn};
 
@@ -11,22 +11,19 @@ fn main() -> anyhow::Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("flatfekt.toml"));
 
-    let cfg = match RootConfig::load_from_path(&config_path) {
-        Ok(cfg) => cfg,
-        Err(err) => {
-            warn!(error = %err, "config load failed (continuing with defaults)");
-            RootConfig {
-                app: None,
-                logging: None,
-                platform: None,
-                render: None,
-            }
-        }
-    };
-
+    let cfg = load_config_or_fail_fast(&config_path)?;
     enforce_platform_and_render_defaults(&cfg)?;
-
     info!(?cfg, "loaded config");
+
+    let scene_path = cfg
+        .app
+        .as_ref()
+        .and_then(|a| a.scene_path.clone())
+        .unwrap_or_else(|| PathBuf::from("scenes/demo.toml"));
+
+    let scene_file = flatfekt_schema::SceneFile::load_from_path(&scene_path)?;
+    info!(path = %scene_path.display(), "loaded scene");
+    let _ = scene_file;
 
     let rt = Runtime::new();
     let _ = rt;
@@ -35,9 +32,30 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn init_tracing() {
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    tracing_subscriber::fmt().with_env_filter(env_filter).init();
+    // Early subscriber: gets replaced by config-driven filter once config is loaded.
+    let env_filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+    tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .with_target(true)
+        .with_level(true)
+        .init();
+}
+
+fn load_config_or_fail_fast(path: &PathBuf) -> anyhow::Result<RootConfig> {
+    match RootConfig::load_from_path(path) {
+        Ok(cfg) => Ok(cfg),
+        Err(ConfigError::Read { .. }) if !path.exists() => {
+            warn!(path = %path.display(), "config file not found; using built-in defaults");
+            Ok(RootConfig {
+                app: None,
+                logging: None,
+                platform: None,
+                render: None,
+            })
+        }
+        Err(err) => Err(err.into()),
+    }
 }
 
 fn enforce_platform_and_render_defaults(cfg: &RootConfig) -> anyhow::Result<()> {

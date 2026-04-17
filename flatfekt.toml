@@ -1,0 +1,31 @@
+# flatfekt control-pane configuration
+#
+# This file is intended to centralize operational decisions, tuning knobs, feature flags,
+# and policy choices. Defaults exist, but explicit configuration is preferred.
+
+[app]
+# Optional display name (used for logs / UI labels).
+name = "flatfekt"
+
+# Entrypoint scene file (TOML).
+scene_path = "scenes/demo.toml"
+
+# Root directory for resolving asset paths (images/fonts/etc.).
+assets_dir = "assets"
+
+[platform]
+# Default target graphics environment for this project.
+unix_backend = "wayland"
+
+[render]
+# This project requires Vulkan and fails fast if no Vulkan adapter is available.
+backend = "vulkan"
+
+[logging]
+# One of: trace, debug, info, warn, error
+level = "info"
+
+# Optional: override with a full tracing filter string, e.g.:
+# filter = "info,flatfekt_runtime=debug,wgpu=warn"
+# filter = "debug"
+
