@@ -26,6 +26,23 @@ unix_backend = "wayland"
 # This project requires Vulkan and fails fast if no Vulkan adapter is available.
 backend = "vulkan"
 
+[render.effects]
+# Enable global post-processing effects and compositing.
+enabled = false
+
+# Select which `scene.effects[].id` is active globally.
+# global_effect_id = "grayscale"
+
+[render.effects.render_to_texture]
+# If enabled, render the scene to an offscreen texture before presenting.
+enabled = true
+
+# Resolution strategy: "window" (recommended) or "fixed" (planned).
+mode = "window"
+
+# Scale factor applied to the target resolution (1.0 = full size).
+scale = 1.0
+
 [logging]
 # One of: trace, debug, info, warn, error
 level = "info"
@@ -63,3 +80,19 @@ debounce_ms = 250
 
 # If true, reload errors are logged and the app keeps running. If false, the app exits.
 warn_and_continue = true
+
+[assets.hot_reload]
+# When runtime hot reload is enabled, also reload assets through Bevy's AssetServer
+# when watched asset files change (images, fonts, wgsl).
+enabled = true
+debounce_ms = 250
+warn_and_continue = true
+
+[simulation]
+# Simulation stepping scaffold (separate from timeline).
+enabled = false
+deterministic = true
+fixed_dt_secs = 0.016666667
+max_catchup_steps = 4
+seed = 0
+playing = true

@@ -1,0 +1,51 @@
+[scene]
+schema_version = "0.1"
+
+[scene.playback]
+duration_secs = 10.0
+loop_mode = "stop"
+allow_user_input = false
+allow_scrub = true
+allow_rewind = true
+enable_introspection = false
+
+[[scene.timeline]]
+time = 0.0
+action = "apply_patch"
+target = "title"
+
+[scene.timeline.payload]
+track = "main"
+label = "start"
+op = "update"
+entity_id = "title"
+
+[scene.timeline.payload.patch.text]
+value = "A"
+
+[[scene.timeline]]
+time = 1.5
+action = "apply_patch"
+target = "title"
+
+[scene.timeline.payload]
+track = "main"
+after = "start"
+op = "update"
+entity_id = "title"
+
+[scene.timeline.payload.patch.text]
+value = "B"
+
+[[scene.entities]]
+id = "title"
+
+[scene.entities.text]
+value = "initial"
+size = 24.0
+
+[scene.entities.transform]
+x = 0.0
+y = 0.0
+z = 0.0
+

@@ -14,9 +14,9 @@ Provide tools that make the engine usable: CLI, validators, linters, formatters,
 ## Milestones
 
 ### M0 — validate and run
-- [ ] Add a CLI subcommand: `validate <scene.toml>` (exit non-zero on errors)
-- [ ] Add a CLI subcommand: `run <scene.toml>` (overrides config scene path)
-- [ ] Add `tracing` output controls via CLI flags (level/filter)
+- [x] Add a CLI subcommand: `validate <scene.toml>` (exit non-zero on errors)
+- [x] Add a CLI subcommand: `run <scene.toml>` (overrides config scene path)
+- [x] Add `tracing` output controls via CLI flags (level/filter)
 
 ### M1 — schema and formatting helpers
 - [ ] Add a TOML formatter/linter for scene files (deterministic output)
@@ -29,4 +29,3 @@ Provide tools that make the engine usable: CLI, validators, linters, formatters,
 ### M3 — content generators
 - [ ] Add “new scene” template generator (minimal working example)
 - [ ] Add demo generator for text effects / timeline examples
-

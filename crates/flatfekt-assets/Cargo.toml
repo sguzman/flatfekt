@@ -8,6 +8,7 @@ license.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
+naga = { version = "29.0.1", features = ["wgsl-in"] }
 
 flatfekt-config = { path = "../flatfekt-config" }
 flatfekt-schema = { path = "../flatfekt-schema" }

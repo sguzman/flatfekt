@@ -13,9 +13,9 @@ Own the engine’s “physics/rules” evolution loop: fixed timesteps, physics 
 ## Milestones
 
 ### M0 — sim stepping scaffold
-- [ ] Add fixed timestep driver with configurable `dt` and max catch-up steps
+- [x] Add fixed timestep driver with configurable `dt` and max catch-up steps
 - [ ] Add sim pause/step/reset actions (wired through `interaction-roadmap.md`)
-- [ ] Add `tracing` spans around sim tick and system sets
+- [x] Add `tracing` spans around sim tick and system sets
 
 ### M1 — simple physics integration (feature-gated)
 - [ ] Choose and integrate a maintained 2D physics crate behind a feature flag (document choice)
@@ -34,5 +34,4 @@ Own the engine’s “physics/rules” evolution loop: fixed timesteps, physics 
 
 ### Determinism policy
 - [ ] Define which sim features are required-deterministic and enforce via tests
-- [ ] Add seed routing for stochastic sim systems (no hidden randomness)
-
+- [x] Add seed routing for stochastic sim systems (no hidden randomness)

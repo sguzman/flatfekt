@@ -113,6 +113,7 @@ pub struct Scene {
   pub background:
     Option<BackgroundSpec>,
   pub playback: Option<PlaybackSpec>,
+  pub effects: Option<Vec<EffectSpec>>,
   pub defaults: Option<DefaultsSpec>,
   #[serde(default)]
   pub templates:
@@ -124,6 +125,21 @@ pub struct Scene {
   pub timeline:
     Option<Vec<TimelineEvent>>,
   pub entities:       Vec<EntitySpec>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct EffectSpec {
+  pub id:     String,
+  pub wgsl:   AssetRef,
+  #[schemars(skip)]
+  pub params: Option<toml::Value>
 }
 
 #[derive(
@@ -301,12 +317,13 @@ pub struct Transform2d {
 )]
 #[serde(deny_unknown_fields)]
 pub struct SpriteSpec {
-  pub image:   AssetRef,
-  pub width:   Option<f32>,
-  pub height:  Option<f32>,
-  pub anchor:  Option<String>,
-  pub tint:    Option<ColorRgba>,
-  pub opacity: Option<f32>
+  pub image:     AssetRef,
+  pub width:     Option<f32>,
+  pub height:    Option<f32>,
+  pub anchor:    Option<String>,
+  pub tint:      Option<ColorRgba>,
+  pub opacity:   Option<f32>,
+  pub effect_id: Option<String>
 }
 
 #[derive(
@@ -585,6 +602,60 @@ impl Scene {
       }
     }
 
+    if let Some(effects) = &self.effects
+    {
+      let mut ids =
+        std::collections::HashSet::<&str>::new();
+      for (eidx, e) in
+        effects.iter().enumerate()
+      {
+        if e.id.trim().is_empty() {
+          return Err(SceneError::Validate(format!(
+            "scene.effects[{eidx}].id must not be empty"
+          )));
+        }
+        if !ids.insert(e.id.as_str()) {
+          return Err(
+            SceneError::Validate(
+              format!(
+                "duplicate effect id \
+                 {:?} (scene.\
+                 effects[{eidx}])",
+                e.id
+              )
+            )
+          );
+        }
+        match &e.wgsl {
+          | AssetRef::String(s)
+            if s.trim().is_empty() =>
+          {
+            return Err(SceneError::Validate(format!(
+              "scene.effects[{eidx}].wgsl must not be empty"
+            )));
+          }
+          | AssetRef::Path {
+            path
+          } if path
+            .as_os_str()
+            .is_empty() =>
+          {
+            return Err(SceneError::Validate(format!(
+              "scene.effects[{eidx}].wgsl must not be empty"
+            )));
+          }
+          | AssetRef::Id {
+            id
+          } if id.trim().is_empty() => {
+            return Err(SceneError::Validate(format!(
+              "scene.effects[{eidx}].wgsl id must not be empty"
+            )));
+          }
+          | _ => {}
+        }
+      }
+    }
+
     let mut ids =
       HashSet::<&str>::with_capacity(
         self.entities.len()
@@ -755,6 +826,33 @@ impl Scene {
           {
             return Err(SceneError::Validate(format!(
               "scene.entities[{idx}].sprite.opacity must be within [0, 1]"
+            )));
+          }
+        }
+        if let Some(effect_id) =
+          sprite.effect_id.as_deref()
+        {
+          if effect_id.trim().is_empty()
+          {
+            return Err(SceneError::Validate(format!(
+              "scene.entities[{idx}].sprite.effect_id must not be empty"
+            )));
+          }
+          if let Some(effects) =
+            &self.effects
+          {
+            if !effects.iter().any(
+              |e| e.id == effect_id
+            ) {
+              return Err(SceneError::Validate(format!(
+                "scene.entities[{idx}].sprite.effect_id references unknown effect id {:?}",
+                effect_id
+              )));
+            }
+          } else {
+            return Err(SceneError::Validate(format!(
+              "scene.entities[{idx}].sprite.effect_id references effect id {:?} but scene.effects is not defined",
+              effect_id
             )));
           }
         }

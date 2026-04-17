@@ -14,15 +14,15 @@ Prove correctness and stability: unit tests, schema compatibility tests, determi
 ### M0 — basic unit coverage
 - [x] Add unit tests for config parsing/validation
 - [x] Add unit tests for scene parsing/validation
-- [ ] Add smoke test that instantiates a minimal scene into a Bevy `App` (headless if possible)
+- [x] Add smoke test that instantiates a minimal scene into a Bevy `App` (headless if possible)
 
 ### M1 — golden fixtures
 - [x] Add golden scene fixtures (`tests/fixtures/scenes/`) and validate them in tests
 - [ ] Add golden patch fixtures (`tests/fixtures/patches/`) and validate apply semantics
 
 ### M2 — determinism suite
-- [ ] Add deterministic sim tick tests (state after N ticks equals expected)
-- [ ] Add deterministic timeline tests (values at timestamps equal expected)
+- [x] Add deterministic sim tick tests (state after N ticks equals expected)
+- [x] Add deterministic timeline tests (values at timestamps equal expected)
 - [x] Add deterministic render ordering tests (sorting keys)
 
 ### M3 — benchmarks (verifiable)

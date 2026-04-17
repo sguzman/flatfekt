@@ -246,6 +246,28 @@ fn parse_event_meta(
 }
 
 #[instrument(level = "info", skip_all)]
+pub fn apply_seek_timeline(
+  clock: &mut crate::TimelineClock,
+  plan: &mut TimelinePlan,
+  t_secs: f32,
+  playing: bool
+) -> Result<(), &'static str> {
+  if !t_secs.is_finite() {
+    return Err(
+      "seek ignored: non-finite time"
+    );
+  }
+  clock.t_secs = t_secs.max(0.0);
+  clock.accumulator_secs = 0.0;
+  clock.playing = playing;
+  plan.cursor =
+    plan.events.partition_point(|e| {
+      e.time < clock.t_secs
+    });
+  Ok(())
+}
+
+#[instrument(level = "info", skip_all)]
 pub fn seek_timeline_system(
   mut events: MessageReader<
     crate::SeekTimeline
@@ -256,25 +278,24 @@ pub fn seek_timeline_system(
   mut plan: ResMut<TimelinePlan>
 ) {
   for ev in events.read() {
-    if !ev.t_secs.is_finite() {
-      tracing::warn!(
-        t_secs = ev.t_secs,
-        "seek ignored: non-finite time"
-      );
-      continue;
+    match apply_seek_timeline(
+      &mut clock, &mut plan, ev.t_secs,
+      ev.playing
+    ) {
+      | Ok(()) => {
+        tracing::info!(
+          t_secs = clock.t_secs,
+          cursor = plan.cursor,
+          "timeline seek applied"
+        )
+      }
+      | Err(msg) => {
+        tracing::warn!(
+          t_secs = ev.t_secs,
+          "{msg}"
+        )
+      }
     }
-    clock.t_secs = ev.t_secs.max(0.0);
-    clock.accumulator_secs = 0.0;
-    clock.playing = ev.playing;
-    plan.cursor =
-      plan.events.partition_point(
-        |e| e.time < clock.t_secs
-      );
-    tracing::info!(
-      t_secs = clock.t_secs,
-      cursor = plan.cursor,
-      "timeline seek applied"
-    );
   }
 }
 
@@ -496,9 +517,16 @@ fn parse_easing(
 #[instrument(level = "trace", skip_all)]
 pub fn update_tweens(
   clock: Res<crate::TimelineClock>,
-  mut transform_query: Query<(
-    &mut Transform,
-    &TransformTween
+  mut transform_and_camera: ParamSet<(
+    Query<(
+      &mut Transform,
+      &TransformTween
+    )>,
+    Query<(
+      &mut Transform,
+      &mut Projection,
+      &CameraPanZoomTween
+    )>
   )>,
   mut sprite_query: Query<(
     &mut Sprite,
@@ -507,11 +535,6 @@ pub fn update_tweens(
   mut text_query: Query<(
     &mut TextColor,
     &ColorTween
-  )>,
-  mut camera_query: Query<(
-    &mut Transform,
-    &mut Projection,
-    &CameraPanZoomTween
   )>,
   mut fade_sprite_query: Query<
     (&mut Sprite, &FadeTween),
@@ -528,7 +551,7 @@ pub fn update_tweens(
   let t_secs = clock.t_secs;
 
   for (mut transform, tween) in
-    transform_query.iter_mut()
+    transform_and_camera.p0().iter_mut()
   {
     let mut progress =
       if tween.duration > 0.0 {
@@ -560,6 +583,44 @@ pub fn update_tweens(
         tween.end_transform.scale,
         eased
       );
+  }
+
+  for (
+    mut transform,
+    mut proj,
+    tween
+  ) in
+    transform_and_camera.p1().iter_mut()
+  {
+    let progress = ((t_secs
+      - tween.start_time)
+      / tween.duration.max(0.0001))
+    .clamp(0.0, 1.0);
+    let eased =
+      tween.easing.apply(progress);
+
+    transform.translation = tween
+      .start_transform
+      .translation
+      .lerp(
+        tween.end_transform.translation,
+        eased
+      );
+    transform.scale =
+      tween.start_transform.scale.lerp(
+        tween.end_transform.scale,
+        eased
+      );
+
+    let start = tween.start_zoom;
+    let end = tween.end_zoom;
+    let zoom = start.lerp(end, eased);
+    let mut ortho =
+      OrthographicProjection::default_2d();
+    ortho.scale =
+      1.0 / zoom.max(0.0001);
+    *proj =
+      Projection::Orthographic(ortho);
   }
 
   for (mut sprite, tween) in
@@ -618,39 +679,6 @@ pub fn update_tweens(
         .alpha
         .lerp(srgba_end.alpha, eased)
     );
-  }
-
-  for (
-    mut transform,
-    mut projection,
-    tween
-  ) in camera_query.iter_mut()
-  {
-    let progress = ((t_secs
-      - tween.start_time)
-      / tween.duration.max(0.0001))
-    .clamp(0.0, 1.0);
-    let eased =
-      tween.easing.apply(progress);
-    transform.translation = tween
-      .start_transform
-      .translation
-      .lerp(
-        tween.end_transform.translation,
-        eased
-      );
-
-    if let Projection::Orthographic(
-      ref mut ortho
-    ) = *projection
-    {
-      let zoom = tween.start_zoom
-        + (tween.end_zoom
-          - tween.start_zoom)
-          * eased;
-      ortho.scale =
-        1.0 / zoom.max(0.0001);
-    }
   }
 
   for (mut sprite, tween) in

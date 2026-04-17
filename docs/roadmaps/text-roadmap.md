@@ -14,9 +14,9 @@ Make text a first-class visual object: font loading, fallback, styled spans, lay
 ## Milestones
 
 ### M0 — basic text in scenes
-- [ ] Support text entities in scene TOML (string, font ref, size, color, anchor)
-- [ ] Support multiline and alignment options
-- [ ] Add tests that load scenes with text and validate component instantiation
+- [x] Support text entities in scene TOML (string, font ref, size, color, anchor)
+- [x] Support multiline and alignment options
+- [x] Add tests that load scenes with text and validate component instantiation
 
 ### M1 — styled spans
 - [ ] Add rich text spec (spans with per-span style: color, weight, italics if available)
@@ -29,4 +29,3 @@ Make text a first-class visual object: font loading, fallback, styled spans, lay
 ### M3 — shader-driven text effects (optional)
 - [ ] Add optional shader effects pipeline for text (feature-gated)
 - [ ] Add effect parameter schema in TOML with validation
-

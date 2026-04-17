@@ -37,7 +37,34 @@ pub enum AssetResolveError {
     "asset path contains parent \
      traversal '..': {0}"
   )]
-  ParentTraversal(String)
+  ParentTraversal(String),
+
+  #[error(
+    "failed to read asset at {path}: \
+     {source}"
+  )]
+  Read {
+    path:   PathBuf,
+    #[source]
+    source: std::io::Error
+  },
+
+  #[error(
+    "wgsl shader parse failed at \
+     {path}: {source}"
+  )]
+  WgslParse {
+    path:   PathBuf,
+    #[source]
+    source:
+      naga::front::wgsl::ParseError
+  },
+
+  #[error(
+    "wgsl shader must have .wgsl \
+     extension: {0}"
+  )]
+  WgslExtension(String)
 }
 
 #[derive(Debug, Clone)]
@@ -234,7 +261,8 @@ pub mod bevy_load {
   use bevy::prelude::{
     Font,
     Handle,
-    Image
+    Image,
+    Shader
   };
   use flatfekt_config::RootConfig;
   use flatfekt_schema::AssetRef;
@@ -342,6 +370,57 @@ pub mod bevy_load {
       .abs
       .strip_prefix(root)
       .unwrap_or(&resolved.abs)
+      .to_string_lossy()
+      .to_string();
+    Ok(assets.load(rel))
+  }
+
+  #[instrument(
+    level = "info",
+    skip_all
+  )]
+  pub fn load_wgsl_shader(
+    assets: &AssetServer,
+    cfg: &RootConfig,
+    root: &Path,
+    shader: &AssetRef
+  ) -> Result<
+    Handle<Shader>,
+    AssetResolveError
+  > {
+    let abs = resolve_asset_path_cfg(
+      cfg, root, shader
+    )?;
+    if abs
+      .extension()
+      .and_then(|e| e.to_str())
+      != Some("wgsl")
+    {
+      return Err(
+        AssetResolveError::WgslExtension(
+          abs.display().to_string()
+        )
+      );
+    }
+    let bytes = std::fs::read(&abs)
+      .map_err(|source| {
+        AssetResolveError::Read {
+          path: abs.clone(),
+          source
+        }
+      })?;
+    let text =
+      String::from_utf8_lossy(&bytes);
+    naga::front::wgsl::parse_str(&text)
+      .map_err(|source| {
+        AssetResolveError::WgslParse {
+          path: abs.clone(),
+          source
+        }
+      })?;
+    let rel = abs
+      .strip_prefix(root)
+      .unwrap_or(&abs)
       .to_string_lossy()
       .to_string();
     Ok(assets.load(rel))

@@ -26,15 +26,15 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 
 ### M2 — materials and effects
 - [x] Add sprite tint/opacity controls
-- [ ] Add simple shader/material hooks (optional; feature-gated)
-- [ ] Add layered post-processing pipeline hooks (optional; future-ready)
+- [x] Add simple shader/material hooks (optional; feature-gated)
+- [x] Add layered post-processing pipeline hooks (optional; future-ready)
 
 ## Effect integration
-- [ ] Define TOML-facing effect binding model (per-entity and/or global passes)
-- [ ] Add WGSL effect material example (minimal) and ensure it loads from TOML refs
+- [x] Define TOML-facing effect binding model (per-entity and/or global passes)
+- [x] Add WGSL effect material example (minimal) and ensure it loads from TOML refs
 
 ### M3 — offscreen rendering and capture
-- [ ] Add render-to-texture support for compositing
+- [x] Add render-to-texture support for compositing
 - [x] Add screenshot capture API (used by `export-roadmap.md`)
 
 ## Grouped tasks

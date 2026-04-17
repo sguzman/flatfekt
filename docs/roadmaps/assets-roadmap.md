@@ -23,8 +23,8 @@ Own how assets are referenced from TOML, resolved to paths, loaded/cached, reloa
 - [x] Add asset metadata tracking (size, type, load time)
 
 ### M2 — reload behavior
-- [ ] Define and implement asset hot reload semantics (with runtime hot reload)
-- [ ] Add config knobs for reload debounce and failure policy
+- [x] Define and implement asset hot reload semantics (with runtime hot reload)
+- [x] Add config knobs for reload debounce and failure policy
 
 ### M3 — asset packs / packaging
 - [ ] Define pack layout (directory manifest) and implement loading from a pack root
@@ -46,9 +46,9 @@ Own how assets are referenced from TOML, resolved to paths, loaded/cached, reloa
 - [ ] Add video policy knobs (max resolution/fps, buffering strategy, audio handling stance)
 
 ### Shaders (WGSL)
-- [ ] Support WGSL shader assets (materials/effects) referenced from TOML
-- [ ] Add shader compilation/validation error reporting with actionable paths
-- [ ] Add shader hot-reload integration (ties into runtime hot reload)
+- [x] Support WGSL shader assets (materials/effects) referenced from TOML
+- [x] Add shader compilation/validation error reporting with actionable paths
+- [x] Add shader hot-reload integration (ties into runtime hot reload)
 
 ### Audio (future)
 - [ ] Add audio asset reference model (formats + policy knobs) behind a feature flag

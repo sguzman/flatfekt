@@ -30,6 +30,13 @@ allow_scrub = true
 allow_rewind = true
 enable_introspection = false
 
+[[scene.effects]]
+id = "grayscale"
+wgsl = "effects/grayscale.wgsl"
+
+[scene.effects.params]
+intensity = 0.85
+
 [[scene.entities]]
 id = "title"
 tags = ["ui", "text"]

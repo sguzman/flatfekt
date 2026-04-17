@@ -414,13 +414,14 @@ fn load_config_or_fail_fast(
     }) if !path.exists() => {
       warn!(path = %path.display(), "config file not found; using built-in defaults");
       Ok(RootConfig {
-        app:      None,
-        logging:  None,
-        platform: None,
-        render:   None,
-        assets:   None,
-        features: None,
-        runtime:  None
+        app:        None,
+        logging:    None,
+        platform:   None,
+        render:     None,
+        assets:     None,
+        features:   None,
+        runtime:    None,
+        simulation: None
       })
     }
     | Err(err) => Err(err.into())

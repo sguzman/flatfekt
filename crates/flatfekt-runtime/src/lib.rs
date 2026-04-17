@@ -186,6 +186,8 @@ pub struct AssetsCacheRes(
 );
 
 pub mod animation;
+pub mod render_effects;
+pub mod simulation;
 
 pub struct FlatfektRuntimePlugin;
 
@@ -200,6 +202,7 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_message::<SnapshotScene>()
       .add_message::<RequestScreenshot>()
       .add_message::<SeekTimeline>()
+      .add_message::<simulation::SimTick>()
       .configure_sets(Startup, FlatfektSet::Instantiate)
       .configure_sets(
         Update,
@@ -213,6 +216,8 @@ impl Plugin for FlatfektRuntimePlugin {
       .init_resource::<EntityMap>()
       .init_resource::<AssetsCacheRes>()
       .init_resource::<TimelineClock>()
+      .init_resource::<simulation::SimulationClock>()
+      .init_resource::<simulation::SimulationSeed>()
       .add_systems(
         Startup,
         init_timeline_clock
@@ -228,19 +233,31 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_systems(
         Update,
-        timeline_driver.in_set(FlatfektSet::SimTick)
+        animation::seek_timeline_system
+          .in_set(FlatfektSet::SimTick)
+          .before(timeline_driver)
       )
       .add_systems(
         Update,
-        animation::seek_timeline_system
-          .in_set(FlatfektSet::SimTick)
-          .after(timeline_driver)
+        timeline_driver.in_set(FlatfektSet::SimTick)
       )
       .add_systems(
         Update,
         animation::process_timeline_events
           .in_set(FlatfektSet::SimTick)
-          .after(animation::seek_timeline_system)
+          .after(timeline_driver)
+      )
+      .add_systems(
+        Startup,
+        simulation::init_simulation
+          .after(init_timeline_clock)
+      )
+      .add_systems(
+        Update,
+        simulation::simulation_driver
+          .in_set(FlatfektSet::SimTick)
+          .after(timeline_driver)
+          .before(animation::process_timeline_events)
       )
       .add_systems(
         Update,
@@ -318,19 +335,54 @@ pub fn build_app(
         )
       })?;
     use notify::Watcher;
-    if let Err(err) = watcher.watch(
-      &scene_path,
-      notify::RecursiveMode::NonRecursive
-    ) {
+    let mut watch_paths: Vec<PathBuf> =
+      vec![scene_path.clone()];
+    if cfg.render_effects_enabled() {
+      if let Some(effects) =
+        &scene.scene.effects
+      {
+        for e in effects {
+          if let Ok(abs) =
+            flatfekt_assets::resolve::resolve_asset_path_cfg(
+              &cfg,
+              &root,
+              &e.wgsl,
+            )
+          {
+            watch_paths.push(abs);
+          }
+        }
+      }
+    }
+
+    let mut ok_any = false;
+    for p in &watch_paths {
+      if let Err(err) = watcher.watch(
+        p,
+        notify::RecursiveMode::NonRecursive
+      ) {
+        tracing::error!(
+          path = %p.display(),
+          "failed to watch path for hot reload: {}",
+          err
+        );
+      } else {
+        ok_any = true;
+      }
+    }
+
+    if !ok_any {
       tracing::error!(
-        "failed to watch scene for hot reload: {}",
-        err
+        "hot reload requested but no \
+         paths could be watched"
       );
     } else {
-      app.insert_resource(SceneFileWatcher {
-        receiver: rx,
-        _watcher: watcher
-      });
+      app.insert_resource(
+        SceneFileWatcher {
+          receiver: rx,
+          _watcher: watcher
+        }
+      );
     }
   }
 
@@ -345,6 +397,17 @@ pub fn build_app(
     ))
     .add_plugins(DefaultPlugins)
     .add_plugins(FlatfektRuntimePlugin);
+
+  if app
+    .world()
+    .resource::<ConfigRes>()
+    .0
+    .render_effects_enabled()
+  {
+    app.add_plugins(
+      render_effects::FlatfektEffectsPlugin
+    );
+  }
   Ok(app)
 }
 
@@ -488,6 +551,9 @@ fn instantiate_scene(
   cfg: Res<ConfigRes>,
   scene: Res<SceneRes>,
   assets_root: Res<AssetsRootRes>,
+  effects_rtt: Option<
+    Res<render_effects::RenderToTextureRes>
+  >,
   mut meshes: ResMut<Assets<Mesh>>,
   mut materials: ResMut<
     Assets<ColorMaterial>
@@ -506,6 +572,17 @@ fn instantiate_scene(
 
   let mut camera =
     commands.spawn(Camera2d);
+  if let Some(rtt) = effects_rtt {
+    camera.insert(Camera {
+      order: 0,
+      ..default()
+    });
+    camera.insert(
+      bevy_camera::RenderTarget::Image(
+        rtt.image.clone().into()
+      )
+    );
+  }
   if let Some(c) = &scene.camera {
     let x = c.x.unwrap_or(0.0);
     let y = c.y.unwrap_or(0.0);
@@ -1079,6 +1156,10 @@ pub fn hot_reload_system(
   scene_path: Option<Res<ScenePathRes>>,
   cfg: Option<Res<ConfigRes>>,
   mut scene_res: ResMut<SceneRes>,
+  assets_root: Option<
+    Res<AssetsRootRes>
+  >,
+  asset_server: Res<AssetServer>,
   mut reload_status: Local<
     ReloadStatus
   >,
@@ -1095,20 +1176,42 @@ pub fn hot_reload_system(
   };
 
   let cfg = cfg.as_deref();
-  let debounce_ms = cfg
+  let debounce_scene_ms = cfg
     .map(|c| {
       c.0
         .runtime_hot_reload_debounce_ms(
         )
     })
     .unwrap_or(250);
+  let debounce_assets_ms = cfg
+    .map(|c| {
+      c.0
+        .assets_hot_reload_debounce_ms()
+    })
+    .unwrap_or(250);
+  let debounce_ms = debounce_scene_ms
+    .min(debounce_assets_ms);
   let warn_and_continue = cfg
     .map(|c| {
       c.0.runtime_hot_reload_warn_and_continue()
     })
     .unwrap_or(true);
+  let assets_warn_and_continue = cfg
+    .map(|c| {
+      c.0
+        .assets_hot_reload_warn_and_continue()
+    })
+    .unwrap_or(true);
+  let assets_enabled = cfg
+    .map(|c| {
+      c.0.assets_hot_reload_enabled()
+    })
+    .unwrap_or(false);
 
   let mut changed = false;
+  let mut any_wgsl = false;
+  let mut changed_paths: Vec<PathBuf> =
+    Vec::new();
   for event in w.receiver.try_iter() {
     match event.kind {
       | notify::EventKind::Modify(
@@ -1120,6 +1223,16 @@ pub fn hot_reload_system(
         changed = true;
       }
       | _ => {}
+    }
+    for p in &event.paths {
+      changed_paths.push(p.clone());
+      if p
+        .extension()
+        .and_then(|e| e.to_str())
+        == Some("wgsl")
+      {
+        any_wgsl = true;
+      }
     }
   }
 
@@ -1141,10 +1254,113 @@ pub fn hot_reload_system(
   *last_changed = None;
 
   {
-    tracing::info!(
-      "Scene file change detected, \
-       hot-reloading..."
-    );
+    let any_scene_toml = changed_paths
+      .iter()
+      .any(|cp| cp == &p.0);
+
+    if any_scene_toml {
+      tracing::info!(
+        path = %p.0.display(),
+        "scene file change detected; reloading"
+      );
+    } else if !changed_paths.is_empty()
+    {
+      tracing::info!(
+        paths = changed_paths.len(),
+        "non-scene change detected"
+      );
+    }
+    if any_wgsl {
+      // Reload shader assets. The
+      // AssetServer expects
+      // asset-relative paths, so we
+      // strip the assets root.
+      if let (Some(cfg), Some(ar)) = (
+        cfg.as_deref(),
+        assets_root.as_deref()
+      ) {
+        if let Some(scene_effects) =
+          &scene_res.0.scene.effects
+        {
+          for e in scene_effects {
+            if let Ok(abs) =
+              flatfekt_assets::resolve::resolve_asset_path_cfg(
+                &cfg.0,
+                &ar.0,
+                &e.wgsl,
+              )
+            {
+              let rel = abs
+                .strip_prefix(&ar.0)
+                .unwrap_or(&abs)
+                .to_string_lossy()
+                .to_string();
+              asset_server.reload(rel);
+            }
+          }
+        }
+      } else {
+        tracing::warn!(
+          "shader change detected but \
+           config/assets root \
+           unavailable; skipping \
+           shader reload"
+        );
+      }
+      reload_status.last_error = None;
+      tracing::info!(
+        "Shader reload requested"
+      );
+      return;
+    }
+
+    if !any_scene_toml && assets_enabled
+    {
+      // Reload any assets under the
+      // assets root. This is a policy
+      // layer on top
+      // of Bevy's asset system: we only
+      // reload assets we were
+      // explicitly asked
+      // to watch.
+      if let Some(ar) =
+        assets_root.as_deref()
+      {
+        let mut reloaded: usize = 0;
+        for abs in &changed_paths {
+          if let Ok(rel) =
+            abs.strip_prefix(&ar.0)
+          {
+            let rel = rel
+              .to_string_lossy()
+              .to_string();
+            asset_server.reload(rel);
+            reloaded += 1;
+          }
+        }
+        tracing::info!(
+          reloaded,
+          "asset reload requested"
+        );
+      } else if assets_warn_and_continue
+      {
+        tracing::warn!(
+          "asset change detected but \
+           assets root unavailable; \
+           skipping reload"
+        );
+      } else {
+        tracing::error!(
+          "asset change detected but \
+           assets root unavailable; \
+           disabling watcher"
+        );
+        commands
+          .remove_resource::<SceneFileWatcher>();
+      }
+      return;
+    }
+
     match SceneFile::load_from_path(
       &p.0
     ) {

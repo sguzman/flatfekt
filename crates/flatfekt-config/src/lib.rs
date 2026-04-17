@@ -41,7 +41,16 @@ pub struct AssetsConfig {
       String,
       PathBuf
     >
-  >
+  >,
+  pub hot_reload:
+    Option<AssetsHotReloadConfig>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AssetsHotReloadConfig {
+  pub enabled:           Option<bool>,
+  pub debounce_ms:       Option<u64>,
+  pub warn_and_continue: Option<bool>
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -76,13 +85,40 @@ pub struct RuntimeConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct SimulationConfig {
+  pub enabled:           Option<bool>,
+  pub deterministic:     Option<bool>,
+  pub fixed_dt_secs:     Option<f32>,
+  pub max_catchup_steps: Option<u32>,
+  pub seed:              Option<u64>,
+  pub playing:           Option<bool>
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct PlatformConfig {
   pub unix_backend: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RenderConfig {
-  pub backend: Option<String>
+  pub backend: Option<String>,
+  pub effects:
+    Option<RenderEffectsConfig>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RenderEffectsConfig {
+  pub enabled:           Option<bool>,
+  pub global_effect_id:  Option<String>,
+  pub render_to_texture:
+    Option<RenderToTextureConfig>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RenderToTextureConfig {
+  pub enabled: Option<bool>,
+  pub mode:    Option<String>,
+  pub scale:   Option<f32>
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -101,13 +137,15 @@ pub struct LoggingConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RootConfig {
-  pub app:      Option<AppConfig>,
-  pub logging:  Option<LoggingConfig>,
+  pub app:        Option<AppConfig>,
+  pub logging:    Option<LoggingConfig>,
   pub platform: Option<PlatformConfig>,
-  pub render:   Option<RenderConfig>,
-  pub assets:   Option<AssetsConfig>,
+  pub render:     Option<RenderConfig>,
+  pub assets:     Option<AssetsConfig>,
   pub features: Option<FeaturesConfig>,
-  pub runtime:  Option<RuntimeConfig>
+  pub runtime:    Option<RuntimeConfig>,
+  pub simulation:
+    Option<SimulationConfig>
 }
 
 impl RootConfig {
@@ -313,6 +351,59 @@ impl RootConfig {
       }
     }
 
+    if let Some(assets) = &self.assets {
+      if let Some(h) =
+        &assets.hot_reload
+      {
+        if let Some(ms) = h.debounce_ms
+        {
+          if ms == 0 {
+            return Err(
+              ConfigError::Validate(
+                "assets.hot_reload.\
+                 debounce_ms must be \
+                 >= 1"
+                  .to_owned()
+              )
+            );
+          }
+        }
+      }
+    }
+
+    if let Some(sim) = &self.simulation
+    {
+      if let Some(dt) =
+        sim.fixed_dt_secs
+      {
+        if !dt.is_finite() || dt <= 0.0
+        {
+          return Err(
+            ConfigError::Validate(
+              "simulation.\
+               fixed_dt_secs must be \
+               > 0"
+                .to_owned()
+            )
+          );
+        }
+      }
+      if let Some(steps) =
+        sim.max_catchup_steps
+      {
+        if steps == 0 {
+          return Err(
+            ConfigError::Validate(
+              "simulation.\
+               max_catchup_steps must \
+               be >= 1"
+                .to_owned()
+            )
+          );
+        }
+      }
+    }
+
     if self.unix_backend() != "wayland"
     {
       return Err(
@@ -333,6 +424,46 @@ impl RootConfig {
           self.render_backend()
         ))
       );
+    }
+
+    if let Some(render) = &self.render {
+      if let Some(effects) =
+        &render.effects
+      {
+        if let Some(scale) = effects
+          .render_to_texture
+          .as_ref()
+          .and_then(|r| r.scale)
+        {
+          if !scale.is_finite()
+            || scale <= 0.0
+          {
+            return Err(
+              ConfigError::Validate(
+                "render.effects.\
+                 render_to_texture.\
+                 scale must be > 0"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(id) = effects
+          .global_effect_id
+          .as_deref()
+        {
+          if id.trim().is_empty() {
+            return Err(
+              ConfigError::Validate(
+                "render.effects.\
+                 global_effect_id \
+                 must not be empty"
+                  .to_owned()
+              )
+            );
+          }
+        }
+      }
     }
 
     if let Some(logging) = &self.logging
@@ -373,6 +504,57 @@ impl RootConfig {
 }
 
 impl RootConfig {
+  pub fn render_effects_enabled(
+    &self
+  ) -> bool {
+    self
+      .render
+      .as_ref()
+      .and_then(|r| r.effects.as_ref())
+      .and_then(|e| e.enabled)
+      .unwrap_or(false)
+  }
+
+  pub fn render_effects_global_id(
+    &self
+  ) -> Option<&str> {
+    self
+      .render
+      .as_ref()
+      .and_then(|r| r.effects.as_ref())
+      .and_then(|e| {
+        e.global_effect_id.as_deref()
+      })
+  }
+
+  pub fn render_effects_rtt_enabled(
+    &self
+  ) -> bool {
+    self
+      .render
+      .as_ref()
+      .and_then(|r| r.effects.as_ref())
+      .and_then(|e| {
+        e.render_to_texture.as_ref()
+      })
+      .and_then(|rtt| rtt.enabled)
+      .unwrap_or(true)
+  }
+
+  pub fn render_effects_rtt_scale(
+    &self
+  ) -> f32 {
+    self
+      .render
+      .as_ref()
+      .and_then(|r| r.effects.as_ref())
+      .and_then(|e| {
+        e.render_to_texture.as_ref()
+      })
+      .and_then(|rtt| rtt.scale)
+      .unwrap_or(1.0)
+  }
+
   pub fn asset_path_for_id(
     &self,
     id: &str
@@ -382,6 +564,133 @@ impl RootConfig {
       .as_ref()
       .and_then(|a| a.map.as_ref())
       .and_then(|m| m.get(id))
+  }
+}
+
+impl RootConfig {
+  pub fn assets_hot_reload_enabled(
+    &self
+  ) -> bool {
+    self
+      .assets
+      .as_ref()
+      .and_then(|a| {
+        a.hot_reload
+          .as_ref()
+          .and_then(|h| h.enabled)
+      })
+      .unwrap_or_else(|| {
+        self
+          .feature_hot_reload_enabled()
+      })
+  }
+
+  pub fn assets_hot_reload_debounce_ms(
+    &self
+  ) -> u64 {
+    self
+      .assets
+      .as_ref()
+      .and_then(|a| {
+        a.hot_reload
+          .as_ref()
+          .and_then(|h| h.debounce_ms)
+      })
+      .or_else(|| {
+        self.runtime.as_ref().and_then(
+          |r| {
+            r.hot_reload
+              .as_ref()
+              .and_then(|h| {
+                h.debounce_ms
+              })
+          }
+        )
+      })
+      .unwrap_or(250)
+  }
+
+  pub fn assets_hot_reload_warn_and_continue(
+    &self
+  ) -> bool {
+    self
+      .assets
+      .as_ref()
+      .and_then(|a| {
+        a.hot_reload.as_ref().and_then(
+          |h| h.warn_and_continue
+        )
+      })
+      .or_else(|| {
+        self.runtime.as_ref().and_then(
+          |r| {
+            r.hot_reload
+              .as_ref()
+              .and_then(|h| {
+                h.warn_and_continue
+              })
+          }
+        )
+      })
+      .unwrap_or(true)
+  }
+
+  pub fn simulation_enabled(
+    &self
+  ) -> bool {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| s.enabled)
+      .unwrap_or(false)
+  }
+
+  pub fn simulation_playing(
+    &self
+  ) -> bool {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| s.playing)
+      .unwrap_or(true)
+  }
+
+  pub fn simulation_deterministic(
+    &self
+  ) -> bool {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| s.deterministic)
+      .unwrap_or(true)
+  }
+
+  pub fn simulation_fixed_dt_secs(
+    &self
+  ) -> f32 {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| s.fixed_dt_secs)
+      .unwrap_or(1.0 / 60.0)
+  }
+
+  pub fn simulation_max_catchup_steps(
+    &self
+  ) -> u32 {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| s.max_catchup_steps)
+      .unwrap_or(4)
+  }
+
+  pub fn simulation_seed(&self) -> u64 {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| s.seed)
+      .unwrap_or(0)
   }
 }
 

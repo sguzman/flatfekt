@@ -11,6 +11,8 @@ serde.workspace = true
 bevy.workspace = true
 bevy_camera.workspace = true
 bevy_mesh.workspace = true
+bevy_shader.workspace = true
+bevy_sprite_render.workspace = true
 
 flatfekt-config = { path = "../flatfekt-config" }
 flatfekt-schema = { path = "../flatfekt-schema" }
