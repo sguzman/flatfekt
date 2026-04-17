@@ -27,7 +27,10 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 
 ### M0 — repository contract exists
 - [x] Create root `docs/architecture.md` with subsystem map and boundaries
-- [x] Define a single config entrypoint (`flatfekt.toml`) and lookup rules (cwd, env override)
+- [ ] Define a single config entrypoint (`flatfekt.toml`) and lookup rules (cwd, env override)
+  - [x] Support explicit config path override via `FLATFEKT_CONFIG`
+  - [x] Support config file in repository working directory (e.g., `./flatfekt.toml`)
+  - [ ] Support default config directory `.config/flatfekt/` (prefer `.config/flatfekt/flatfekt.toml`)
 - [x] Define error-handling rules (use `thiserror` + `anyhow` boundaries; never `unwrap()` in engine paths)
 - [x] Define `tracing` policy (event fields, span boundaries, per-subsystem targets)
 
@@ -49,6 +52,12 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 - [ ] Define “must be config” vs “may be hardcoded” rules in `docs/architecture.md`
 - [x] Add `flatfekt.toml` sample with comments for all implemented knobs
 - [ ] Ensure knobs are centralized: no gameplay/scene policy magic numbers outside config without explicit rationale
+
+## Operational directories and run modes
+- [ ] Add `app.mode` config (`dev`|`prod`) and wire it to operational behavior
+- [ ] In `dev` mode, write run-scoped timestamped log files under `.cache/flatfekt/logs/` in addition to terminal output
+- [ ] Standardize cache directory layout under `.cache/flatfekt/` (central cache root)
+- [ ] Create per-scene cache directories under `.cache/flatfekt/scene/<scene>/` for derived artifacts
 
 ## Open design questions
 - [ ] Decide whether the scene format is one TOML file or a root + includes (directory packs)
