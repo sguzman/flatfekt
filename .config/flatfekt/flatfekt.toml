@@ -7,6 +7,11 @@
 # Optional display name (used for logs / UI labels).
 name = "flatfekt"
 
+# Operational mode: "dev" or "prod".
+# - dev: extra diagnostics, run-scoped log files, caching conveniences
+# - prod: minimal diagnostics, no per-run file logs by default
+mode = "dev"
+
 # Entrypoint scene file (TOML).
 scene_path = "scenes/demo.toml"
 

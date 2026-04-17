@@ -60,6 +60,14 @@ Build everything in the workspace:
 cargo build
 ```
 
+Format, lint, and test:
+
+```bash
+cargo fmt
+cargo clippy
+cargo test
+```
+
 Run the viewer app:
 
 ```bash
@@ -70,3 +78,6 @@ Environment variables:
 
 - `FLATFEKT_CONFIG`: override the path to the control-pane config file
 
+Default config path:
+
+- `.config/flatfekt/flatfekt.toml`

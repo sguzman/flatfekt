@@ -24,10 +24,13 @@ Typed project configuration that selects scene entrypoints, asset roots, logging
 - `crates/flatfekt-runtime`: runtime orchestration APIs (Bevy integration will live here)
 - `apps/flatfekt-viewer`: reference runner app (loads config + scene and starts the runtime)
 
+## Bevy dependency boundary
+- Crates that may depend on Bevy: runtime/rendering/UI “engine” crates and apps.
+- Crates that must remain Bevy-free: schema/config/tooling crates (so they can run in validators/CLI tools without pulling a renderer).
+
 ## Observability
 - All subsystem boundaries emit structured events/spans via `tracing`.
 - Logging level/filter are controlled via config and/or environment overrides.
 
 ## Policy: config + scenes are TOML-first
 Scenes and scene-internal state are controlled via TOML. Project behavior, policy, feature flags, and tunables are centralized in `flatfekt.toml` (control pane).
-

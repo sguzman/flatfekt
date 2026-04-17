@@ -36,6 +36,7 @@ pub struct RenderConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
     pub name: Option<String>,
+    pub mode: Option<String>,
     pub scene_path: Option<PathBuf>,
     pub assets_dir: Option<PathBuf>,
 }
@@ -90,6 +91,16 @@ impl RootConfig {
     #[instrument(level = "info", skip_all)]
     pub fn validate(&self) -> Result<(), ConfigError> {
         if let Some(app) = &self.app {
+            if let Some(mode) = &app.mode {
+                let mode = mode.as_str();
+                let ok = matches!(mode, "dev" | "prod");
+                if !ok {
+                    return Err(ConfigError::Validate(format!(
+                        "unsupported app.mode {:?}; expected \"dev\" or \"prod\"",
+                        mode
+                    )));
+                }
+            }
             if let Some(scene_path) = &app.scene_path {
                 if scene_path.as_os_str().is_empty() {
                     return Err(ConfigError::Validate(
@@ -133,5 +144,14 @@ impl RootConfig {
         }
 
         Ok(())
+    }
+}
+
+impl RootConfig {
+    pub fn app_mode(&self) -> &str {
+        self.app
+            .as_ref()
+            .and_then(|a| a.mode.as_deref())
+            .unwrap_or("dev")
     }
 }
