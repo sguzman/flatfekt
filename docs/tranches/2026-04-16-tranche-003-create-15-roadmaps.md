@@ -1,6 +1,6 @@
 # Tranche 003 (2026-04-16) — create 15 feature-axis roadmaps
 
-- [x] Read `tmp/project2.md` and extract the 15 roadmap axes
+- [x] Read the provided project outline and extract the 15 roadmap axes
 - [x] Add `docs/roadmaps/README.md` index for the 15 roadmaps
 - [x] Create `docs/roadmaps/core-roadmap.md`
 - [x] Create `docs/roadmaps/schema-roadmap.md`
@@ -18,4 +18,3 @@
 - [x] Create `docs/roadmaps/testing-roadmap.md`
 - [x] Create `docs/roadmaps/export-roadmap.md`
 - [x] Retire prior `docs/roadmaps/implementation.md` and `docs/roadmaps/config-control-pane.md` in favor of axis roadmaps
-

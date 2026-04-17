@@ -6,7 +6,7 @@ This directory contains **15 orthogonal capability roadmaps** (feature axes). Ea
 - Kept in sync with the repository as work lands (items are checked off, partial work is split).
 - Scoped to engine capabilities (use-case “content” belongs under `examples/` / `content/` later, not in these roadmaps).
 
-Canonical axes (derived from `tmp/project2.md`):
+Canonical axes:
 
 - `core-roadmap.md`
 - `schema-roadmap.md`
@@ -23,4 +23,3 @@ Canonical axes (derived from `tmp/project2.md`):
 - `tooling-roadmap.md`
 - `testing-roadmap.md`
 - `export-roadmap.md`
-
