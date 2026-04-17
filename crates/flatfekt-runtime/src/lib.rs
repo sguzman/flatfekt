@@ -169,6 +169,8 @@ pub struct AssetsCacheRes(
   pub AssetCache
 );
 
+pub mod animation;
+
 pub struct FlatfektRuntimePlugin;
 
 impl Plugin for FlatfektRuntimePlugin {
@@ -201,6 +203,10 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_systems(
         Update,
         timeline_driver.in_set(FlatfektSet::SimTick)
+      )
+      .add_systems(
+        Update,
+        animation::update_tweens.in_set(FlatfektSet::SimTick).after(timeline_driver)
       )
       .add_systems(
         Update,
