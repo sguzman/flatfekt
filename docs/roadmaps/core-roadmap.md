@@ -16,13 +16,17 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 
 ## Dependency rules (initial)
 - [ ] Publish and enforce crate dependency DAG (no cycles; `*_runtime` depends on `*_schema`, never vice versa)
-- [ ] Define “engine crates” vs “apps/examples” (apps may depend on engine crates; engine crates must not depend on apps)
+  - [x] Instantiate a Cargo workspace with `crates/` and `apps/` members
+  - [x] Add initial engine crates: config + schema + runtime
+  - [x] Add initial runner app crate
+  - [ ] Add an explicit “allowed dependencies” document/table and keep it current
+- [x] Define “engine crates” vs “apps/examples” (apps may depend on engine crates; engine crates must not depend on apps)
 - [ ] Define which crates are allowed to touch Bevy types directly (prefer keeping “schema” crates Bevy-free)
 
 ## Milestones
 
 ### M0 — repository contract exists
-- [ ] Create root `docs/architecture.md` with subsystem map and boundaries
+- [x] Create root `docs/architecture.md` with subsystem map and boundaries
 - [ ] Define a single config entrypoint (`flatfekt.toml`) and lookup rules (cwd, env override)
 - [ ] Define error-handling rules (use `thiserror` + `anyhow` boundaries; never `unwrap()` in engine paths)
 - [ ] Define `tracing` policy (event fields, span boundaries, per-subsystem targets)
@@ -49,4 +53,3 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 ## Open design questions
 - [ ] Decide whether the scene format is one TOML file or a root + includes (directory packs)
 - [ ] Decide whether Bevy schedule is authoritative, or engine defines its own schedule sets
-
