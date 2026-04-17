@@ -7,6 +7,7 @@ Target file: `flatfekt.toml` (exact path to be finalized in tranche 1).
 ## Core
 
 - [ ] `app.name` (string)
+- [ ] `app.scene_path` (path; entrypoint scene TOML)
 - [ ] `app.assets_dir` (path)
 - [ ] `logging.level` (enum/string)
 - [ ] `logging.filter` (string; optional override)
@@ -25,14 +26,12 @@ Target file: `flatfekt.toml` (exact path to be finalized in tranche 1).
 - [ ] `ui.help_text` (string)
 - [ ] `ui.title_font_size` / `ui.help_font_size` (f32)
 - [ ] `ui.margins_px` (u32)
-- [ ] `features.ui_help_text` (bool)
+- [ ] `features.ui_overlay` (bool)
 
-## Script / Dialogue
+## Scene
 
-- [ ] `script.lines` (array of strings)
-- [ ] `dialogue.nearness` (f32)
-- [ ] `dialogue.whisper_lifetime_secs` (f32)
-- [ ] `dialogue.font_size` (f32)
+- [ ] `scene.entities` (array; typed entity specs)
+- [ ] `scene.defaults` (table; common defaults like fonts/colors)
 
 ## Citizens
 
@@ -54,3 +53,13 @@ Target file: `flatfekt.toml` (exact path to be finalized in tranche 1).
 - [ ] `player.reset_button` (enum; gamepad mapping)
 - [ ] `player.world_radius` (f32)
 
+## Hot Reload
+
+- [ ] `features.hot_reload` (bool)
+- [ ] `hot_reload.debounce_ms` (u64)
+
+## Timeline / Transitions
+
+- [ ] `timeline.enabled` (bool)
+- [ ] `timeline.fixed_dt_secs` (f32; optional)
+- [ ] `timeline.events_path` (path; optional directory of patches)
