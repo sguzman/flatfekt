@@ -160,7 +160,7 @@ pub struct EntityHealth {
 
 #[instrument(level = "trace", skip_all)]
 pub fn gravity_system(
-  tick: Trigger<SimTick>,
+  tick: On<SimTick>,
   mut query: Query<(&mut PhysicsBody, &mut Transform)>
 ) {
   let dt = tick.event().dt_secs;
