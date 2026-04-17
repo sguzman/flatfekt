@@ -75,6 +75,28 @@ pub struct FadeTween {
   pub easing:      Easing
 }
 
+#[derive(Component, Debug, Clone)]
+pub struct TypewriterEffect {
+  pub start_time:    f32,
+  pub chars_per_sec: f32,
+  pub full_text:     String
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct TextLetterAnimation {
+  pub effect:     LetterEffectKind,
+  pub frequency:  f32,
+  pub amplitude:  f32,
+  pub start_time: f32
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LetterEffectKind {
+  Wave,
+  Jitter,
+  FadeIn
+}
+
 #[derive(Resource, Default)]
 pub struct TimelinePlan {
   pub events: Vec<PlannedEvent>,
@@ -714,5 +736,35 @@ pub fn update_tweens(
         - tween.start_alpha)
         * eased;
     text_color.0 = Color::Srgba(srgba);
+  }
+}
+
+#[instrument(level = "trace", skip_all)]
+pub fn update_typewriter(
+  clock: Res<crate::TimelineClock>,
+  mut query: Query<(&TypewriterEffect, &mut Text2d)>
+) {
+  if !clock.enabled || !clock.playing {
+    return;
+  }
+  let t_secs = clock.t_secs;
+  for (effect, mut text) in query.iter_mut() {
+    let elapsed = t_secs - effect.start_time;
+    if elapsed < 0.0 {
+      if !text.0.is_empty() {
+        text.0 = String::new();
+      }
+      continue;
+    }
+    let char_count =
+      (elapsed * effect.chars_per_sec) as usize;
+    let new_val = effect
+      .full_text
+      .chars()
+      .take(char_count)
+      .collect::<String>();
+    if text.0 != new_val {
+      text.0 = new_val;
+    }
   }
 }

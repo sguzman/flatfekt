@@ -259,11 +259,17 @@ impl Plugin for FlatfektRuntimePlugin {
           .after(timeline_driver)
           .before(animation::process_timeline_events)
       )
+      .add_observer(simulation::gravity_system)
       .add_systems(
         Update,
-        animation::update_tweens
-          .in_set(FlatfektSet::SimTick)
-          .after(animation::process_timeline_events)
+        (
+          animation::update_tweens
+            .in_set(FlatfektSet::SimTick)
+            .after(animation::process_timeline_events),
+          animation::update_typewriter
+            .in_set(FlatfektSet::SimTick)
+            .after(animation::process_timeline_events)
+        )
       )
       .add_systems(
         Update,
@@ -880,8 +886,19 @@ fn spawn_text(
     | _ => Justify::Center
   };
 
+  let text_value = if let Some(v) = &spec.value {
+    v.clone()
+  } else if let Some(spans) = &spec.spans {
+    spans
+      .iter()
+      .map(|s| s.value.as_str())
+      .collect::<String>()
+  } else {
+    String::new()
+  };
+
   let mut entity = commands.spawn((
-    Text2d::new(spec.value.clone()),
+    Text2d::new(text_value),
     text_font,
     TextLayout::new_with_justify(
       justify

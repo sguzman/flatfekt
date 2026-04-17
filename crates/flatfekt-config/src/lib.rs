@@ -34,7 +34,30 @@ pub enum ConfigError {
   Validate(String)
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AssetDecodePolicy {
+  pub max_width:  Option<u32>,
+  pub max_height: Option<u32>,
+  pub max_bytes:  Option<u64>,
+  pub fail_fast:  Option<bool>
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SvgAssetConfig {
+  pub enabled: Option<bool>
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct VideoAssetConfig {
+  pub enabled: Option<bool>
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AudioAssetConfig {
+  pub enabled: Option<bool>
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct AssetsConfig {
   pub map: Option<
     std::collections::BTreeMap<
@@ -43,24 +66,29 @@ pub struct AssetsConfig {
     >
   >,
   pub hot_reload:
-    Option<AssetsHotReloadConfig>
+    Option<AssetsHotReloadConfig>,
+  pub decode_policy:
+    Option<AssetDecodePolicy>,
+  pub svg:   Option<SvgAssetConfig>,
+  pub video: Option<VideoAssetConfig>,
+  pub audio: Option<AudioAssetConfig>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct AssetsHotReloadConfig {
   pub enabled:           Option<bool>,
   pub debounce_ms:       Option<u64>,
   pub warn_and_continue: Option<bool>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct FeaturesConfig {
   pub ui_egui:        Option<bool>,
   pub inspector_egui: Option<bool>,
   pub hot_reload:     Option<bool>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct RuntimeTimelineConfig {
   pub enabled:           Option<bool>,
   pub deterministic:     Option<bool>,
@@ -70,13 +98,13 @@ pub struct RuntimeTimelineConfig {
     Option<Vec<String>>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct RuntimeHotReloadConfig {
   pub debounce_ms:       Option<u64>,
   pub warn_and_continue: Option<bool>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct RuntimeConfig {
   pub timeline:
     Option<RuntimeTimelineConfig>,
@@ -84,7 +112,7 @@ pub struct RuntimeConfig {
     Option<RuntimeHotReloadConfig>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct SimulationConfig {
   pub enabled:           Option<bool>,
   pub deterministic:     Option<bool>,
@@ -94,19 +122,19 @@ pub struct SimulationConfig {
   pub playing:           Option<bool>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct PlatformConfig {
   pub unix_backend: Option<String>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct RenderConfig {
   pub backend: Option<String>,
   pub effects:
     Option<RenderEffectsConfig>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct RenderEffectsConfig {
   pub enabled:           Option<bool>,
   pub global_effect_id:  Option<String>,
@@ -114,14 +142,14 @@ pub struct RenderEffectsConfig {
     Option<RenderToTextureConfig>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct RenderToTextureConfig {
   pub enabled: Option<bool>,
   pub mode:    Option<String>,
   pub scale:   Option<f32>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct AppConfig {
   pub name:       Option<String>,
   pub mode:       Option<String>,
@@ -129,13 +157,13 @@ pub struct AppConfig {
   pub assets_dir: Option<PathBuf>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct LoggingConfig {
   pub level:  Option<String>,
   pub filter: Option<String>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct RootConfig {
   pub app:        Option<AppConfig>,
   pub logging:    Option<LoggingConfig>,

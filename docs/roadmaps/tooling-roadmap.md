@@ -19,13 +19,13 @@ Provide tools that make the engine usable: CLI, validators, linters, formatters,
 - [x] Add `tracing` output controls via CLI flags (level/filter)
 
 ### M1 — schema and formatting helpers
-- [ ] Add a TOML formatter/linter for scene files (deterministic output)
-- [ ] Add a “print resolved scene” command (after defaults/templates applied)
+- [x] Add a TOML formatter/linter for scene files (deterministic output)
+- [x] Add a “print resolved scene” command (after defaults/templates applied)
 
 ### M2 — migration tooling
-- [ ] Add a scene schema migrator command (vN -> vN+1)
-- [ ] Add a patch/delta diff tool (scene A -> scene B)
+- [x] Add a scene schema migrator command (vN -> vN+1)
+- [x] Add a patch/delta diff tool (scene A -> scene B)
 
 ### M3 — content generators
-- [ ] Add “new scene” template generator (minimal working example)
-- [ ] Add demo generator for text effects / timeline examples
+- [x] Add “new scene” template generator (minimal working example)
+- [x] Add demo generator for text effects / timeline examples

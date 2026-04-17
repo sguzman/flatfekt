@@ -2820,6 +2820,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "flatfekt-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "flatfekt-config",
+ "flatfekt-runtime",
+ "flatfekt-schema",
+ "serde",
+ "thiserror 2.0.18",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "flatfekt-config"
 version = "0.1.0"
 dependencies = [

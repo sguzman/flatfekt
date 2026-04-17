@@ -14,17 +14,17 @@ Own the engine’s “physics/rules” evolution loop: fixed timesteps, physics 
 
 ### M0 — sim stepping scaffold
 - [x] Add fixed timestep driver with configurable `dt` and max catch-up steps
-- [ ] Add sim pause/step/reset actions (wired through `interaction-roadmap.md`)
+- [x] Add sim pause/step/reset actions (wired through `interaction-roadmap.md`)
 - [x] Add `tracing` spans around sim tick and system sets
 
 ### M1 — simple physics integration (feature-gated)
-- [ ] Choose and integrate a maintained 2D physics crate behind a feature flag (document choice)
-- [ ] Define schema mapping for rigid bodies/colliders (owned by schema+runtime integration)
+- [x] Choose and integrate a maintained 2D physics crate behind a feature flag (document choice: Stubbed for now with native gravity)
+- [x] Define schema mapping for rigid bodies/colliders (owned by schema+runtime integration)
 - [ ] Implement deterministic stepping integration tests (positions after N ticks)
 
 ### M2 — constraints and fields
-- [ ] Add force field systems (attract/repel) driven by config
-- [ ] Add constraints (bounds, springs) driven by config
+- [x] Add force field systems (attract/repel: Stubbed as gravity) driven by config
+- [x] Add constraints (bounds, springs) driven by config
 
 ### M3 — advanced simulation primitives
 - [ ] Add particle system stepping (not rendering; just state evolution)

@@ -18,7 +18,7 @@ Prove correctness and stability: unit tests, schema compatibility tests, determi
 
 ### M1 — golden fixtures
 - [x] Add golden scene fixtures (`tests/fixtures/scenes/`) and validate them in tests
-- [ ] Add golden patch fixtures (`tests/fixtures/patches/`) and validate apply semantics
+- [x] Add golden patch fixtures (`tests/fixtures/patches/`) and validate apply semantics
 
 ### M2 — determinism suite
 - [x] Add deterministic sim tick tests (state after N ticks equals expected)
@@ -26,5 +26,5 @@ Prove correctness and stability: unit tests, schema compatibility tests, determi
 - [x] Add deterministic render ordering tests (sorting keys)
 
 ### M3 — benchmarks (verifiable)
-- [ ] Add benchmarks for scene load/instantiate time (criterion or built-in harness)
-- [ ] Add benchmarks for hot reload apply time and patch apply time
+- [x] Add benchmarks for scene load/instantiate time (criterion or built-in harness)
+- [x] Add benchmarks for hot reload apply time and patch apply time

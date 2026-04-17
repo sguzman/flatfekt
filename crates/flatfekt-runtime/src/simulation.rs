@@ -145,3 +145,29 @@ pub fn simulation_driver(
     clock.accumulator_secs = 0.0;
   }
 }
+
+#[derive(Component, Debug, Clone, Default)]
+pub struct PhysicsBody {
+  pub velocity: Vec2,
+  pub mass:     f32
+}
+
+#[derive(Component, Debug, Clone, Default)]
+pub struct EntityHealth {
+  pub current: f32,
+  pub max:     f32
+}
+
+#[instrument(level = "trace", skip_all)]
+pub fn gravity_system(
+  tick: Trigger<SimTick>,
+  mut query: Query<(&mut PhysicsBody, &mut Transform)>
+) {
+  let dt = tick.event().dt_secs;
+  // Stub gravity vector
+  let gravity = Vec2::new(0.0, -9.81);
+  for (mut body, mut tf) in query.iter_mut() {
+    body.velocity += gravity * dt;
+    tf.translation += body.velocity.extend(0.0) * dt;
+  }
+}

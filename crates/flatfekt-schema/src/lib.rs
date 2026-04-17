@@ -59,6 +59,21 @@ pub struct ColorRgba {
   pub a: Option<f32>
 }
 
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct AssetPackSpec {
+  pub name:     String,
+  pub version:  String,
+  pub root:     PathBuf,
+  pub manifest: Option<PathBuf>
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum SceneError {
   #[error(
@@ -124,7 +139,21 @@ pub struct Scene {
   #[serde(default)]
   pub timeline:
     Option<Vec<TimelineEvent>>,
-  pub entities:       Vec<EntitySpec>
+  pub simulation: Option<SimRegionSpec>,
+  pub entities:   Vec<EntitySpec>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct SimRegionSpec {
+  pub gravity: [f32; 2],
+  pub bounds:  Option<[f32; 4]>
 }
 
 #[derive(
@@ -169,11 +198,13 @@ pub struct PlaybackSpec {
 )]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsSpec {
-  pub text_font_size: Option<f32>,
-  pub text_color:     Option<ColorRgba>,
-  pub sprite_anchor:  Option<String>,
-  pub text_anchor:    Option<String>,
-  pub text_align:     Option<String>
+  pub text_font:          Option<AssetRef>,
+  pub text_font_fallback: Option<Vec<AssetRef>>,
+  pub text_font_size:     Option<f32>,
+  pub text_color:         Option<ColorRgba>,
+  pub sprite_anchor:      Option<String>,
+  pub text_anchor:        Option<String>,
+  pub text_align:         Option<String>
 }
 
 #[derive(
@@ -215,13 +246,15 @@ pub struct BackgroundSpec {
 pub struct EntitySpec {
   pub id:         String,
   pub extends:    Option<String>,
-  pub activation:
-    Option<ActivationSpec>,
+  pub activation: Option<ActivationSpec>,
   pub tags:       Option<Vec<String>>,
   pub transform:  Option<Transform2d>,
   pub sprite:     Option<SpriteSpec>,
   pub text:       Option<TextSpec>,
-  pub shape:      Option<ShapeSpec>
+  pub shape:      Option<ShapeSpec>,
+  pub physics:    Option<PhysicsSpec>,
+  pub collider:   Option<ColliderSpec>,
+  pub particles:  Option<ParticleSystemSpec>
 }
 
 #[derive(
@@ -334,8 +367,26 @@ pub struct SpriteSpec {
   Deserialize,
 )]
 #[serde(deny_unknown_fields)]
-pub struct TextSpec {
+pub struct TextSpan {
   pub value:  String,
+  pub font:   Option<AssetRef>,
+  pub size:   Option<f32>,
+  pub color:  Option<ColorRgba>,
+  pub weight: Option<String>,
+  pub italic: Option<bool>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct TextSpec {
+  pub value:  Option<String>,
+  pub spans:  Option<Vec<TextSpan>>,
   pub font:   Option<AssetRef>,
   pub size:   Option<f32>,
   pub color:  Option<ColorRgba>,
@@ -361,6 +412,53 @@ pub struct ShapeSpec {
   pub radius: Option<f32>,
 
   pub sides: Option<u32>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct PhysicsSpec {
+  pub body_type:      String,
+  pub mass:           Option<f32>,
+  pub friction:       Option<f32>,
+  pub restitution:    Option<f32>,
+  pub linear_damping:  Option<f32>,
+  pub angular_damping: Option<f32>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ColliderSpec {
+  pub kind:   String,
+  pub size:   Option<[f32; 2]>,
+  pub radius: Option<f32>,
+  pub sensor: Option<bool>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ParticleSystemSpec {
+  pub emission_rate: f32,
+  pub lifetime:      f32,
+  pub velocity_min:  [f32; 2],
+  pub velocity_max:  [f32; 2]
 }
 
 impl SceneFile {
@@ -859,10 +957,26 @@ impl Scene {
       }
 
       if let Some(text) = &entity.text {
-        if text.value.is_empty() {
-          return Err(SceneError::Validate(format!(
-            "scene.entities[{idx}].text.value must not be empty"
-          )));
+        if text.value.is_none()
+          && text.spans.is_none()
+        {
+          return Err(SceneError::Validate(
+            format!(
+              "scene.entities[{idx}].text \
+               must have either value or \
+               spans"
+            )
+          ));
+        }
+        if let Some(v) = &text.value {
+          if v.is_empty() {
+            return Err(SceneError::Validate(
+              format!(
+                "scene.entities[{idx}].text.\
+                 value must not be empty"
+              )
+            ));
+          }
         }
         if text.size.is_some_and(|s| {
           !s.is_finite() || s <= 0.0
