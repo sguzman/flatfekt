@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use flatfekt_config::{
-  ConfigError,
-  RootConfig
+use flatfekt_config::RootConfig;
+use flatfekt_runtime::{
+  LoadError,
+  load_config,
+  load_scene,
+  run_bevy
 };
-use flatfekt_runtime::run_bevy;
 use tracing::{
   info,
   warn
@@ -38,7 +40,10 @@ fn main() -> anyhow::Result<()> {
       PathBuf::from("scenes/demo.toml")
     });
 
-  let scene_file = flatfekt_schema::SceneFile::load_from_path(&scene_path)?;
+  let scene_file = load_scene(
+    &scene_path
+  )
+  .map_err(|e| anyhow::anyhow!(e))?;
   info!(path = %scene_path.display(), "loaded scene");
 
   ensure_cache_layout(&scene_path)?;
@@ -129,10 +134,9 @@ static LOG_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> = OnceLo
 fn load_config_or_fail_fast(
   path: &PathBuf
 ) -> anyhow::Result<RootConfig> {
-  match RootConfig::load_from_path(path)
-  {
+  match load_config(path) {
     | Ok(cfg) => Ok(cfg),
-    | Err(ConfigError::Read {
+    | Err(LoadError::Config {
       ..
     }) if !path.exists() => {
       warn!(path = %path.display(), "config file not found; using built-in defaults");

@@ -296,22 +296,22 @@ impl Scene {
           })
         {
           return Err(SceneError::Validate(format!(
-                        "scene.entities[{idx}].transform contains non-finite values"
-                    )));
+            "scene.entities[{idx}].transform contains non-finite values"
+          )));
         }
         if t.rotation.is_some_and(|r| {
           !r.is_finite()
         }) {
           return Err(SceneError::Validate(format!(
-                        "scene.entities[{idx}].transform.rotation must be finite"
-                    )));
+            "scene.entities[{idx}].transform.rotation must be finite"
+          )));
         }
         if let Some(s) = t.scale {
           if !s.is_finite() || s <= 0.0
           {
             return Err(SceneError::Validate(format!(
-                            "scene.entities[{idx}].transform.scale must be > 0"
-                        )));
+              "scene.entities[{idx}].transform.scale must be > 0"
+            )));
           }
         }
       }
@@ -326,8 +326,8 @@ impl Scene {
         })?;
         if path.as_os_str().is_empty() {
           return Err(SceneError::Validate(format!(
-                        "scene.entities[{idx}].sprite.image must not be empty"
-                    )));
+            "scene.entities[{idx}].sprite.image must not be empty"
+          )));
         }
         if sprite.width.is_some_and(
           |w| {
@@ -335,8 +335,8 @@ impl Scene {
           }
         ) {
           return Err(SceneError::Validate(format!(
-                        "scene.entities[{idx}].sprite.width must be > 0"
-                    )));
+            "scene.entities[{idx}].sprite.width must be > 0"
+          )));
         }
         if sprite.height.is_some_and(
           |h| {
@@ -344,8 +344,8 @@ impl Scene {
           }
         ) {
           return Err(SceneError::Validate(format!(
-                        "scene.entities[{idx}].sprite.height must be > 0"
-                    )));
+            "scene.entities[{idx}].sprite.height must be > 0"
+          )));
         }
         if let Some(anchor) =
           sprite.anchor.as_deref()
@@ -363,15 +363,15 @@ impl Scene {
       if let Some(text) = &entity.text {
         if text.value.is_empty() {
           return Err(SceneError::Validate(format!(
-                        "scene.entities[{idx}].text.value must not be empty"
-                    )));
+            "scene.entities[{idx}].text.value must not be empty"
+          )));
         }
         if text.size.is_some_and(|s| {
           !s.is_finite() || s <= 0.0
         }) {
           return Err(SceneError::Validate(format!(
-                        "scene.entities[{idx}].text.size must be > 0"
-                    )));
+            "scene.entities[{idx}].text.size must be > 0"
+          )));
         }
         if let Some(c) = text.color {
           validate_color(

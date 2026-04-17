@@ -20,7 +20,7 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 ### M0 — minimal scene v0.1
 - [x] Define top-level `scene` table layout and required fields
 - [x] Define stable `entity_id` type (string) and uniqueness rules
-- [ ] Define transform representation (2D position/rotation/scale; z-order if needed)
+- [x] Define transform representation (2D position/rotation/scale; z-order if needed)
 - [x] Define color representation (sRGB triples + alpha)
 - [x] Define sprite spec (image ref + size + anchor)
 - [x] Define text spec (string + font ref + size + alignment/anchor)
@@ -56,7 +56,7 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [ ] Add stable ordering rules for deterministic serialization (if exporting)
 
 ### Validation ergonomics
-- [ ] Add error paths (e.g., `scene.entities[3].sprite.image`) to all validation failures
+- [x] Add error paths (e.g., `scene.entities[3].sprite.image`) to all validation failures
 - [ ] Add “did you mean” suggestions for unknown IDs (optional but useful)
 
 ### Documentation artifacts (verifiable)

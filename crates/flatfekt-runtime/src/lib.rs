@@ -1,34 +1,42 @@
 #![forbid(unsafe_code)]
 
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{
+  Path,
+  PathBuf
+};
 
-use bevy::prelude::*;
+use bevy::prelude::{
+  Projection,
+  *
+};
 use flatfekt_assets::resolve::{
+  AssetResolveError,
   assets_root,
   bevy_load
 };
-use flatfekt_config::RootConfig;
+use flatfekt_config::{
+  ConfigError,
+  RootConfig
+};
 use flatfekt_schema::{
   AssetRef,
   ColorRgba,
   SceneError,
-  SceneFile
+  SceneFile,
+  Transform2d
 };
 use tracing::instrument;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
-  #[error("asset resolution failed: {0}")]
-  Assets(
-    #[from]
-    flatfekt_assets::resolve::AssetResolveError
-  ),
+  #[error(
+    "asset resolution failed: {0}"
+  )]
+  Assets(#[from] AssetResolveError),
 
   #[error("scene error: {0}")]
-  Scene(
-    #[from]
-    SceneError
-  )
+  Scene(#[from] SceneError)
 }
 
 #[derive(Resource, Clone)]
@@ -40,6 +48,33 @@ pub struct SceneRes(pub SceneFile);
 #[derive(Resource, Clone)]
 pub struct AssetsRootRes(pub PathBuf);
 
+#[derive(
+  Debug,
+  Clone,
+  Copy,
+  PartialEq,
+  Eq,
+  Hash,
+  SystemSet,
+)]
+pub enum FlatfektSet {
+  Load,
+  Instantiate
+}
+
+#[derive(Resource, Default)]
+pub struct SpawnedEntities(
+  pub Vec<Entity>
+);
+
+#[derive(Resource, Default)]
+pub struct EntityMap(
+  pub HashMap<String, Vec<Entity>>
+);
+
+#[derive(Message, Default)]
+pub struct ResetScene;
+
 pub struct FlatfektRuntimePlugin;
 
 impl Plugin for FlatfektRuntimePlugin {
@@ -47,10 +82,40 @@ impl Plugin for FlatfektRuntimePlugin {
     &self,
     app: &mut App
   ) {
-    app.add_systems(
-      Startup,
-      instantiate_scene
-    );
+    app
+      .add_message::<ResetScene>()
+      .configure_sets(
+        Startup,
+        FlatfektSet::Instantiate
+      )
+      .configure_sets(
+        Update,
+        (
+          FlatfektSet::Load,
+          FlatfektSet::Instantiate
+        )
+      )
+      .init_resource::<SpawnedEntities>(
+      )
+      .init_resource::<EntityMap>()
+      .add_systems(
+        Startup,
+        instantiate_scene.in_set(
+          FlatfektSet::Instantiate
+        )
+      )
+      .add_systems(
+        Update,
+        (
+          reset_scene_system,
+          instantiate_scene
+        )
+          .chain()
+          .run_if(bevy::ecs::schedule::common_conditions::on_message::<ResetScene>)
+          .in_set(
+            FlatfektSet::Instantiate
+          )
+      );
   }
 }
 
@@ -79,12 +144,37 @@ fn instantiate_scene(
   assets: Res<AssetServer>,
   cfg: Res<ConfigRes>,
   scene: Res<SceneRes>,
-  assets_root: Res<AssetsRootRes>
+  assets_root: Res<AssetsRootRes>,
+  mut spawned: ResMut<SpawnedEntities>,
+  mut entity_map: ResMut<EntityMap>
 ) {
   let _ = &cfg.0;
   let scene = &scene.0.scene;
 
-  commands.spawn(Camera2d);
+  spawned.0.clear();
+  entity_map.0.clear();
+
+  let mut camera =
+    commands.spawn(Camera2d);
+  if let Some(c) = &scene.camera {
+    let x = c.x.unwrap_or(0.0);
+    let y = c.y.unwrap_or(0.0);
+    camera.insert(
+      Transform::from_translation(
+        Vec3::new(x, y, 0.0)
+      )
+    );
+    if let Some(zoom) = c.zoom {
+      camera.insert(
+        Projection::Orthographic(
+          bevy::prelude::OrthographicProjection {
+            scale: 1.0 / zoom,
+            ..bevy::prelude::OrthographicProjection::default_2d()
+          }
+        )
+      );
+    }
+  }
 
   let clear_color = scene
     .background
@@ -111,32 +201,43 @@ fn instantiate_scene(
     if let Some(sprite_spec) =
       &ent.sprite
     {
-      spawn_sprite(
+      if let Some(e) = spawn_sprite(
         &mut commands,
         &assets,
         &assets_root.0,
         &ent.id,
         sprite_spec,
         tf
-      );
+      ) {
+        spawned.0.push(e);
+        entity_map
+          .0
+          .entry(ent.id.clone())
+          .or_default()
+          .push(e);
+      }
     }
 
     if let Some(text_spec) = &ent.text {
-      spawn_text(
+      let e = spawn_text(
         &mut commands,
         &assets,
         &assets_root.0,
         text_spec,
         tf
       );
+      spawned.0.push(e);
+      entity_map
+        .0
+        .entry(ent.id.clone())
+        .or_default()
+        .push(e);
     }
   }
 }
 
 fn transform_from_spec(
-  t: Option<
-    flatfekt_schema::Transform2d
-  >
+  t: Option<Transform2d>
 ) -> Transform {
   let mut tf = Transform::default();
   if let Some(t) = t {
@@ -163,14 +264,14 @@ fn spawn_sprite(
   entity_id: &str,
   spec: &flatfekt_schema::SpriteSpec,
   tf: Transform
-) {
+) -> Option<Entity> {
   let Some(path) = spec.image.as_path()
   else {
     tracing::error!(
       id = %entity_id,
       "sprite image is not a path"
     );
-    return;
+    return None;
   };
 
   let image_ref = AssetRef::Path {
@@ -192,9 +293,10 @@ fn spawn_sprite(
         sprite.custom_size =
           Some(Vec2::new(w, h));
       }
-      // z-order is carried via
-      // Transform.translation.z
-      commands.spawn((sprite, tf));
+      let e = commands
+        .spawn((sprite, tf))
+        .id();
+      Some(e)
     }
     | Err(err) => {
       tracing::error!(
@@ -202,6 +304,7 @@ fn spawn_sprite(
         id = %entity_id,
         "failed to load sprite image"
       );
+      None
     }
   }
 }
@@ -212,7 +315,7 @@ fn spawn_text(
   assets_root: &PathBuf,
   spec: &flatfekt_schema::TextSpec,
   tf: Transform
-) {
+) -> Entity {
   let font_handle = spec
     .font
     .as_ref()
@@ -262,6 +365,8 @@ fn spawn_text(
       color_from_rgba(c)
     ));
   }
+
+  entity.id()
 }
 
 fn color_from_rgba(
@@ -273,4 +378,101 @@ fn color_from_rgba(
     c.b,
     c.a.unwrap_or(1.0)
   )
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LookupError {
+  #[error("unknown entity id: {0}")]
+  UnknownId(String),
+
+  #[error(
+    "entity id has no runtime \
+     entities: {0}"
+  )]
+  EmptyId(String)
+}
+
+pub fn lookup_entities<'a>(
+  map: &'a EntityMap,
+  id: &str
+) -> Result<&'a [Entity], LookupError> {
+  let Some(list) = map.0.get(id) else {
+    tracing::warn!(
+      id,
+      "entity id lookup failed"
+    );
+    return Err(LookupError::UnknownId(
+      id.to_owned()
+    ));
+  };
+  if list.is_empty() {
+    tracing::warn!(
+      id,
+      "entity id resolved to empty \
+       list"
+    );
+    return Err(LookupError::EmptyId(
+      id.to_owned()
+    ));
+  }
+  Ok(list.as_slice())
+}
+
+#[instrument(level = "info", skip_all)]
+fn reset_scene_system(
+  mut commands: Commands,
+  spawned: Res<SpawnedEntities>
+) {
+  for e in &spawned.0 {
+    commands.entity(*e).despawn();
+  }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LoadError {
+  #[error(
+    "failed to load config at {path}: \
+     {source}"
+  )]
+  Config {
+    path:   PathBuf,
+    #[source]
+    source: ConfigError
+  },
+
+  #[error(
+    "failed to load scene at {path}: \
+     {source}"
+  )]
+  Scene {
+    path:   PathBuf,
+    #[source]
+    source: SceneError
+  }
+}
+
+#[instrument(level = "info", skip_all, fields(path = %path.as_ref().display()))]
+pub fn load_config(
+  path: impl AsRef<Path>
+) -> Result<RootConfig, LoadError> {
+  let path = path.as_ref();
+  flatfekt_config::RootConfig::load_from_path(path).map_err(|source| {
+    LoadError::Config {
+      path: path.to_path_buf(),
+      source
+    }
+  })
+}
+
+#[instrument(level = "info", skip_all, fields(path = %path.as_ref().display()))]
+pub fn load_scene(
+  path: impl AsRef<Path>
+) -> Result<SceneFile, LoadError> {
+  let path = path.as_ref();
+  flatfekt_schema::SceneFile::load_from_path(path).map_err(|source| {
+    LoadError::Scene {
+      path: path.to_path_buf(),
+      source
+    }
+  })
 }

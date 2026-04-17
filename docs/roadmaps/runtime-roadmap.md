@@ -26,7 +26,7 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
 - [x] Add structured `tracing` spans around config load, scene load, instantiate
 
 ### M1 — lifecycle + hot reload
-- [ ] Implement “reset scene” (despawn and re-instantiate deterministically)
+- [x] Implement “reset scene” (despawn and re-instantiate deterministically)
 - [ ] Implement hot reload (file watch + debounce + reload) behind `features.hot_reload`
 - [ ] Ensure hot reload surfaces actionable errors without crashing the app loop
 
@@ -36,16 +36,16 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
 - [ ] Add “scene state snapshot” for deterministic replay (serialize minimal state)
 
 ### M3 — scheduling and determinism
-- [ ] Define engine schedule sets (Load, SimTick, RenderPrep, UI, etc.)
+- [x] Define engine schedule sets (Load, SimTick, RenderPrep, UI, etc.)
 - [ ] Add fixed timestep driver option for sim/timeline determinism
 - [ ] Add deterministic ordering guarantees where required (stable entity spawn order)
 
 ## Grouped tasks
 
 ### Handles and IDs
-- [ ] Define runtime entity mapping: `entity_id` -> `Entity`
-- [ ] Implement lookup helpers with `tracing` instrumentation on failure paths
+- [x] Define runtime entity mapping: `entity_id` -> `Entity`
+- [x] Implement lookup helpers with `tracing` instrumentation on failure paths
 
 ### Error policy
-- [ ] Convert loader failures into structured errors with context (file path, field path)
+- [x] Convert loader failures into structured errors with context (file path, field path)
 - [ ] Add “warn and continue” policy for non-fatal reload errors (configurable)
