@@ -1,0 +1,3 @@
+# Invalid patch fixture: unknown op should be rejected
+op = "teleport"
+entity_id = "title"

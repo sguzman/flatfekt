@@ -1,0 +1,3 @@
+# Patch fixture: remove an entity by id
+op = "remove"
+entity_id = "hint"

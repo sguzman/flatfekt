@@ -1,0 +1,16 @@
+# Patch fixture: add a new entity to a scene
+op = "add"
+
+[entity]
+id = "new_label"
+tags = ["ui", "dynamic"]
+
+[entity.text]
+value = "Hello from patch"
+size = 20.0
+align = "center"
+
+[entity.transform]
+x = 0.0
+y = -60.0
+z = 1.0

@@ -1,0 +1,9 @@
+# Patch fixture: update an existing entity's transform
+op = "update"
+entity_id = "title"
+
+[patch.transform]
+x = 0.0
+y = 200.0
+z = 0.0
+scale = 1.5
