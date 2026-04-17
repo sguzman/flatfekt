@@ -6,10 +6,19 @@ use std::path::{
   PathBuf
 };
 
-use serde::Deserialize;
+use serde::{
+  Deserialize,
+  Serialize
+};
 use tracing::instrument;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(untagged)]
 pub enum AssetRef {
   Path { path: PathBuf },
@@ -36,7 +45,12 @@ impl AssetRef {
 }
 
 #[derive(
-  Debug, Clone, Copy, Deserialize,
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Copy,
+  Serialize,
+  Deserialize,
 )]
 pub struct ColorRgba {
   pub r: f32,
@@ -73,13 +87,25 @@ pub enum SceneError {
   Validate(String)
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct SceneFile {
   pub scene: Scene
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Scene {
   pub schema_version: String,
@@ -88,10 +114,25 @@ pub struct Scene {
     Option<BackgroundSpec>,
   pub playback: Option<PlaybackSpec>,
   pub defaults: Option<DefaultsSpec>,
+  #[serde(default)]
+  pub templates:
+    std::collections::HashMap<
+      String,
+      EntitySpec
+    >,
+  #[serde(default)]
+  pub timeline:
+    Option<Vec<TimelineEvent>>,
   pub entities:       Vec<EntitySpec>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct PlaybackSpec {
   pub duration_secs:        Option<f32>,
@@ -103,7 +144,13 @@ pub struct PlaybackSpec {
     Option<bool>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsSpec {
   pub text_font_size: Option<f32>,
@@ -113,7 +160,13 @@ pub struct DefaultsSpec {
   pub text_align:     Option<String>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct CameraSpec {
   pub x:            Option<f32>,
@@ -123,16 +176,82 @@ pub struct CameraSpec {
   pub clear_color:  Option<ColorRgba>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct BackgroundSpec {
   pub clear_color: Option<ColorRgba>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct EntitySpec {
-  pub id:        String,
+  pub id:         String,
+  pub extends:    Option<String>,
+  pub activation:
+    Option<ActivationSpec>,
+  pub tags:       Option<Vec<String>>,
+  pub transform:  Option<Transform2d>,
+  pub sprite:     Option<SpriteSpec>,
+  pub text:       Option<TextSpec>,
+  pub shape:      Option<ShapeSpec>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ActivationSpec {
+  pub features: Option<Vec<String>>,
+  pub platform: Option<String>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(tag = "op")]
+#[serde(rename_all = "lowercase")]
+pub enum ScenePatch {
+  Add {
+    entity: EntitySpec
+  },
+  Remove {
+    entity_id: String
+  },
+  Update {
+    entity_id: String,
+    patch:     EntityPatch
+  }
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct EntityPatch {
   pub tags:      Option<Vec<String>>,
   pub transform: Option<Transform2d>,
   pub sprite:    Option<SpriteSpec>,
@@ -141,7 +260,28 @@ pub struct EntitySpec {
 }
 
 #[derive(
-  Debug, Clone, Copy, Deserialize,
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct TimelineEvent {
+  pub time:    f32,
+  pub action:  String,
+  pub target:  Option<String>,
+  #[schemars(skip)]
+  pub payload: Option<toml::Value>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Copy,
+  Serialize,
+  Deserialize,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Transform2d {
@@ -152,7 +292,13 @@ pub struct Transform2d {
   pub z:        Option<f32>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct SpriteSpec {
   pub image:  AssetRef,
@@ -161,7 +307,13 @@ pub struct SpriteSpec {
   pub anchor: Option<String>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct TextSpec {
   pub value:  String,
@@ -172,7 +324,13 @@ pub struct TextSpec {
   pub align:  Option<String>
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ShapeSpec {
   pub kind:  String,
@@ -730,6 +888,108 @@ impl Scene {
             }
           }
           | _ => {}
+        }
+      }
+    }
+    // Validate extends references and
+    // did you mean
+    for (idx, entity) in
+      self.entities.iter().enumerate()
+    {
+      if let Some(ext) = &entity.extends
+      {
+        if !self
+          .templates
+          .contains_key(ext)
+        {
+          let mut best_match = None;
+          let mut best_dist =
+            usize::MAX;
+          for tpl in
+            self.templates.keys()
+          {
+            let dist =
+              strsim::levenshtein(
+                ext, tpl
+              );
+            if dist < best_dist
+              && dist <= 3
+            {
+              best_dist = dist;
+              best_match = Some(tpl);
+            }
+          }
+          let did_you_mean =
+            if let Some(m) = best_match
+            {
+              format!(
+                " (did you mean {:?}?)",
+                m
+              )
+            } else {
+              String::new()
+            };
+          return Err(SceneError::Validate(format!(
+            "scene.entities[{idx}].extends references unknown template {:?}{did_you_mean}",
+            ext
+          )));
+        }
+      }
+    }
+
+    if let Some(timeline) =
+      &self.timeline
+    {
+      for (idx, ev) in
+        timeline.iter().enumerate()
+      {
+        if let Some(target) = &ev.target
+        {
+          if !ids
+            .contains(target.as_str())
+            && !self
+              .templates
+              .contains_key(target)
+          {
+            let mut best_match = None;
+            let mut best_dist =
+              usize::MAX;
+            for tpl in self
+              .templates
+              .keys()
+              .map(|s| s.as_str())
+              .chain(
+                ids.iter().map(|s| *s)
+              )
+            {
+              let dist =
+                strsim::levenshtein(
+                  target, tpl
+                );
+              if dist < best_dist
+                && dist <= 3
+              {
+                best_dist = dist;
+                best_match = Some(tpl);
+              }
+            }
+            let did_you_mean =
+              if let Some(m) =
+                best_match
+              {
+                format!(
+                  " (did you mean \
+                   {:?}?)",
+                  m
+                )
+              } else {
+                String::new()
+              };
+            return Err(SceneError::Validate(format!(
+              "scene.timeline[{idx}].target references unknown ID {:?}{did_you_mean}",
+              target
+            )));
+          }
         }
       }
     }

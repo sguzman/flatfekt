@@ -20,7 +20,7 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
   - [x] Add config flags under `features` (`ui_egui`, `inspector_egui`)
   - [x] Add `bevy_egui` integration when `features.ui_egui` is enabled
   - [x] Implement a basic control panel (play/pause/step/reset + time readout)
-- [ ] Instrument UI updates with `tracing` only at boundaries (avoid per-frame spam)
+- [x] Instrument UI updates with `tracing` only at boundaries (avoid per-frame spam)
 
 ### M1 — entity inspector (minimal)
 - [x] Add an entity list panel (by `entity_id` and tags)

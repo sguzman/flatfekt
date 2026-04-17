@@ -54,6 +54,7 @@ pub struct FeaturesConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RuntimeTimelineConfig {
   pub enabled:           Option<bool>,
+  pub deterministic:     Option<bool>,
   pub fixed_dt_secs:     Option<f32>,
   pub max_catchup_steps: Option<u32>
 }

@@ -29,15 +29,15 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 
 ### M1 — defaults, templates, composition
 - [x] Add `defaults` table for common settings (fonts, colors, anchor defaults)
-- [ ] Add “prefab/template” mechanism (named component bundles) and `extends` semantics
+- [x] Add “prefab/template” mechanism (named component bundles) and `extends` semantics
 - [x] Add entity tags/groups for selection and bulk operations
 - [x] Add “asset reference” indirection (logical IDs mapped to paths via config)
 
 ### M2 — deltas/patches and time
-- [ ] Define patch format for entity add/remove/update (stable operations)
-- [ ] Define patch addressing (by `entity_id`; optional selectors by tag)
-- [ ] Define patch validation (referential integrity, type safety)
-- [ ] Define timeline event spec (time, action, target, payload)
+- [x] Define patch format for entity add/remove/update (stable operations)
+- [x] Define patch addressing (by `entity_id`; optional selectors by tag)
+- [x] Define patch validation (referential integrity, type safety)
+- [x] Define timeline event spec (time, action, target, payload)
 
 ## Scene playback metadata (video-like scenes)
 - [x] Add scene-level duration metadata in TOML (explicit `duration_secs` or equivalent)
@@ -45,8 +45,8 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [x] Add scene-level introspection toggle (enable/disable inspection features per scene)
 
 ### M3 — expressiveness and safety
-- [ ] Add conditional activation fields (feature flags, platform flags) with deterministic semantics
-- [ ] Add strict schema versioning with migration stubs (format evolution without breaking consumers)
+- [x] Add conditional activation fields (feature flags, platform flags) with deterministic semantics
+- [x] Add strict schema versioning with migration stubs (format evolution without breaking consumers)
 
 ## Grouped tasks
 
@@ -57,8 +57,8 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 
 ### Validation ergonomics
 - [x] Add error paths (e.g., `scene.entities[3].sprite.image`) to all validation failures
-- [ ] Add “did you mean” suggestions for unknown IDs (optional but useful)
+- [x] Add “did you mean” suggestions for unknown IDs (optional but useful)
 
 ### Documentation artifacts (verifiable)
-- [ ] Add a machine-checked schema doc generator (e.g., emit Markdown from Rust types) behind `tooling`
+- [x] Add a machine-checked schema doc generator (e.g., emit Markdown from Rust types) behind `tooling`
 - [x] Add example TOML fixtures used by tests (kept under `tests/fixtures/`)

@@ -64,8 +64,11 @@ fn main() -> anyhow::Result<()> {
       })
       .unwrap_or(false);
 
-  let mut app =
-    build_app(cfg.clone(), scene_file)?;
+  let mut app = build_app(
+    cfg.clone(),
+    scene_path.clone(),
+    scene_file
+  )?;
 
   if cfg.feature_ui_egui_enabled() {
     info!("enabling egui control UI");
@@ -160,6 +163,9 @@ fn egui_control_panel(
   .show(&*ctx, |ui| {
     ui.horizontal(|ui| {
       if ui.button("<<").clicked() {
+        tracing::info!(
+          "UI Action: Rewind"
+        );
         clock.t_secs =
           (clock.t_secs - 1.0).max(0.0);
       }
@@ -173,15 +179,29 @@ fn egui_control_panel(
         )
         .clicked()
       {
+        tracing::info!(
+          "UI Action: Toggle \
+           Play/Pause (playing: {})",
+          !clock.playing
+        );
         clock.playing = !clock.playing;
       }
       if ui.button("Step").clicked() {
+        tracing::info!(
+          "UI Action: Step"
+        );
         clock.step_once = true;
       }
       if ui.button(">>").clicked() {
+        tracing::info!(
+          "UI Action: Fast Forward"
+        );
         clock.t_secs += 1.0;
       }
       if ui.button("Reset").clicked() {
+        tracing::info!(
+          "UI Action: Reset Timeline"
+        );
         clock.t_secs = 0.0;
         clock.accumulator_secs = 0.0;
         clock.playing = false;

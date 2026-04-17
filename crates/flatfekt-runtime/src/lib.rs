@@ -97,6 +97,19 @@ pub struct ConfigRes(pub RootConfig);
 pub struct SceneRes(pub SceneFile);
 
 #[derive(Resource, Clone)]
+pub struct ScenePathRes(pub PathBuf);
+
+#[derive(Resource)]
+pub struct SceneFileWatcher {
+  pub receiver:
+    crossbeam_channel::Receiver<
+      notify::Event
+    >,
+  pub _watcher:
+    notify::RecommendedWatcher
+}
+
+#[derive(Resource, Clone)]
 pub struct AssetsRootRes(pub PathBuf);
 
 #[derive(
@@ -161,7 +174,9 @@ pub struct EntityMap(
   pub HashMap<String, Vec<Entity>>
 );
 
-#[derive(Message, Default)]
+#[derive(
+  Message, bevy::prelude::Event, Default,
+)]
 pub struct ResetScene;
 
 #[derive(Resource, Default)]
@@ -179,6 +194,9 @@ impl Plugin for FlatfektRuntimePlugin {
     app: &mut App
   ) {
     app.add_message::<ResetScene>()
+      .add_message::<ApplyPatch>()
+      .add_message::<TransitionScene>()
+      .add_message::<SnapshotScene>()
       .configure_sets(Startup, FlatfektSet::Instantiate)
       .configure_sets(
         Update,
@@ -206,6 +224,10 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_systems(
         Update,
+        (apply_patch_system, scene_transition_system, snapshot_scene_system).in_set(FlatfektSet::SimTick)
+      )
+      .add_systems(
+        Update,
         animation::update_tweens.in_set(FlatfektSet::SimTick).after(timeline_driver)
       )
       .add_systems(
@@ -214,18 +236,49 @@ impl Plugin for FlatfektRuntimePlugin {
           .chain()
           .run_if(bevy::ecs::schedule::common_conditions::on_message::<ResetScene>)
           .in_set(FlatfektSet::Instantiate)
+      )
+      .add_systems(
+        Update,
+        hot_reload_system.in_set(FlatfektSet::Load)
       );
   }
 }
 
 pub fn build_app(
   cfg: RootConfig,
+  scene_path: PathBuf,
   scene: SceneFile
 ) -> Result<App, RuntimeError> {
   let root = assets_root(&cfg)?;
   let mut app = App::new();
+
+  if cfg.feature_hot_reload_enabled() {
+    let (tx, rx) =
+      crossbeam_channel::unbounded();
+    let mut watcher =
+      notify::recommended_watcher(
+        move |res| {
+          if let Ok(event) = res {
+            let _ = tx.send(event);
+          }
+        }
+      )
+      .unwrap();
+    use notify::Watcher;
+    watcher.watch(&scene_path, notify::RecursiveMode::NonRecursive).unwrap();
+    app.insert_resource(
+      SceneFileWatcher {
+        receiver: rx,
+        _watcher: watcher
+      }
+    );
+  }
+
   app
     .insert_resource(ConfigRes(cfg))
+    .insert_resource(ScenePathRes(
+      scene_path
+    ))
     .insert_resource(SceneRes(scene))
     .insert_resource(AssetsRootRes(
       root
@@ -237,9 +290,11 @@ pub fn build_app(
 
 pub fn run_bevy(
   cfg: RootConfig,
+  scene_path: PathBuf,
   scene: SceneFile
 ) -> Result<(), RuntimeError> {
-  build_app(cfg, scene)?.run();
+  build_app(cfg, scene_path, scene)?
+    .run();
   Ok(())
 }
 
@@ -281,6 +336,7 @@ fn init_timeline_clock(
 #[instrument(level = "debug", skip_all)]
 fn timeline_driver(
   time: Res<Time>,
+  cfg: Res<ConfigRes>,
   mut clock: ResMut<TimelineClock>
 ) {
   if !clock.enabled {
@@ -298,7 +354,13 @@ fn timeline_driver(
     return;
   }
 
-  let dt = time.delta_secs();
+  let dt =
+    if cfg.0.timeline_deterministic() {
+      clock.dt_secs
+    } else {
+      time.delta_secs()
+    };
+
   if dt.is_finite() && dt > 0.0 {
     clock.accumulator_secs += dt;
   }
@@ -927,4 +989,273 @@ pub fn load_scene(
   flatfekt_schema::SceneFile::load_from_path(path).map_err(|source| {
     LoadError::Scene { path: path.to_path_buf(), source }
   })
+}
+
+#[derive(Resource, Default)]
+pub struct ReloadStatus {
+  pub last_error: Option<String>
+}
+
+#[instrument(level = "info", skip_all)]
+pub fn hot_reload_system(
+  watcher: Option<
+    Res<SceneFileWatcher>
+  >,
+  scene_path: Option<Res<ScenePathRes>>,
+  mut scene_res: ResMut<SceneRes>,
+  mut reload_status: Local<
+    ReloadStatus
+  >,
+  mut commands: Commands
+) {
+  let Some(w) = watcher else {
+    return
+  };
+  let Some(p) = scene_path else {
+    return
+  };
+
+  let mut changed = false;
+  for event in w.receiver.try_iter() {
+    match event.kind {
+      | notify::EventKind::Modify(
+        _
+      )
+      | notify::EventKind::Create(
+        _
+      ) => {
+        changed = true;
+      }
+      | _ => {}
+    }
+  }
+
+  if changed {
+    tracing::info!(
+      "Scene file change detected, \
+       hot-reloading..."
+    );
+    match SceneFile::load_from_path(
+      &p.0
+    ) {
+      | Ok(new_scene) => {
+        scene_res.0 = new_scene;
+        reload_status.last_error = None;
+        commands.trigger(ResetScene);
+        tracing::info!(
+          "Hot-reload successful"
+        );
+      }
+      | Err(err) => {
+        reload_status.last_error =
+          Some(err.to_string());
+        tracing::error!(
+          "Hot-reload failed: {}",
+          err
+        );
+      }
+    }
+  }
+}
+
+use flatfekt_schema::{
+  EntityPatch,
+  EntitySpec,
+  ScenePatch
+};
+
+#[derive(Message, Clone, Debug)]
+pub struct ApplyPatch(pub ScenePatch);
+
+#[instrument(level = "info", skip_all)]
+pub fn apply_patch_system(
+  mut events: MessageReader<ApplyPatch>,
+  mut scene_res: ResMut<SceneRes>,
+  mut commands: Commands
+) {
+  let mut changed = false;
+  let scene = &mut scene_res.0.scene;
+
+  for ev in events.read() {
+    changed = true;
+    match &ev.0 {
+      | ScenePatch::Add {
+        entity
+      } => {
+        scene
+          .entities
+          .push(entity.clone());
+      }
+      | ScenePatch::Remove {
+        entity_id
+      } => {
+        scene.entities.retain(|e| {
+          e.id != *entity_id
+        });
+      }
+      | ScenePatch::Update {
+        entity_id,
+        patch
+      } => {
+        if let Some(ent) = scene
+          .entities
+          .iter_mut()
+          .find(|e| e.id == *entity_id)
+        {
+          if let Some(tags) =
+            &patch.tags
+          {
+            ent.tags =
+              Some(tags.clone());
+          }
+          if let Some(tf) =
+            &patch.transform
+          {
+            ent.transform =
+              Some(tf.clone());
+          }
+          if let Some(sprite) =
+            &patch.sprite
+          {
+            ent.sprite =
+              Some(sprite.clone());
+          }
+          if let Some(text) =
+            &patch.text
+          {
+            ent.text =
+              Some(text.clone());
+          }
+          if let Some(shape) =
+            &patch.shape
+          {
+            ent.shape =
+              Some(shape.clone());
+          }
+        }
+      }
+    }
+  }
+
+  if changed {
+    commands.trigger(ResetScene);
+  }
+}
+
+#[derive(Message, Clone, Debug)]
+pub struct TransitionScene(pub PathBuf);
+
+#[instrument(level = "info", skip_all)]
+pub fn scene_transition_system(
+  mut events: MessageReader<
+    TransitionScene
+  >,
+  mut scene_res: ResMut<SceneRes>,
+  mut reload_status: Local<
+    ReloadStatus
+  >,
+  mut commands: Commands
+) {
+  let mut do_reset = false;
+  for ev in events.read() {
+    let p = &ev.0;
+    tracing::info!(
+      "Transitioning to scene at {:?}",
+      p
+    );
+    match SceneFile::load_from_path(p) {
+      | Ok(new_scene) => {
+        scene_res.0 = new_scene;
+        reload_status.last_error = None;
+        do_reset = true;
+        tracing::info!(
+          "Transition successful"
+        );
+      }
+      | Err(err) => {
+        reload_status.last_error =
+          Some(err.to_string());
+        tracing::error!(
+          "Scene transition failed: {}",
+          err
+        );
+      }
+    }
+  }
+
+  if do_reset {
+    commands.trigger(ResetScene);
+  }
+}
+
+#[derive(Message, Clone, Debug)]
+pub struct SnapshotScene;
+
+#[instrument(level = "info", skip_all)]
+pub fn snapshot_scene_system(
+  mut events: MessageReader<
+    SnapshotScene
+  >,
+  scene_res: Res<SceneRes>,
+  scene_path: Res<ScenePathRes>
+) {
+  for _ in events.read() {
+    let scene_name = scene_path
+      .0
+      .file_stem()
+      .and_then(|s| s.to_str())
+      .unwrap_or("unknown");
+    let snapshot_dir =
+      std::path::PathBuf::from(
+        ".cache"
+      )
+      .join("flatfekt")
+      .join("scene")
+      .join(scene_name);
+
+    if let Err(e) =
+      std::fs::create_dir_all(
+        &snapshot_dir
+      )
+    {
+      tracing::error!(
+        "Failed to create snapshot \
+         directory: {}",
+        e
+      );
+      continue;
+    }
+
+    let snapshot_path = snapshot_dir
+      .join("snapshot.toml");
+    match toml::to_string_pretty(
+      &scene_res.0.scene
+    ) {
+      | Ok(s) => {
+        if let Err(e) = std::fs::write(
+          &snapshot_path,
+          s
+        ) {
+          tracing::error!(
+            "Failed to write \
+             snapshot: {}",
+            e
+          );
+        } else {
+          tracing::info!(
+            "Scene snapshot saved to \
+             {:?}",
+            snapshot_path
+          );
+        }
+      }
+      | Err(e) => {
+        tracing::error!(
+          "Failed to serialize scene \
+           snapshot: {}",
+          e
+        )
+      }
+    }
+  }
 }
