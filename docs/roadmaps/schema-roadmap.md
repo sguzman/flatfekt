@@ -23,6 +23,7 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [x] Define transform representation (2D position/rotation/scale; z-order if needed)
 - [x] Define color representation (sRGB triples + alpha)
 - [x] Define sprite spec (image ref + size + anchor)
+  - [x] Extend sprite spec with tint/opacity controls
 - [x] Define text spec (string + font ref + size + alignment/anchor)
 - [x] Define camera spec (2D camera params + clear color)
 - [x] Define schema validation rules and error messages (missing fields, bad refs, invalid ranges)

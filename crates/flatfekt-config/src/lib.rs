@@ -56,13 +56,23 @@ pub struct RuntimeTimelineConfig {
   pub enabled:           Option<bool>,
   pub deterministic:     Option<bool>,
   pub fixed_dt_secs:     Option<f32>,
-  pub max_catchup_steps: Option<u32>
+  pub max_catchup_steps: Option<u32>,
+  pub enabled_tracks:
+    Option<Vec<String>>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuntimeHotReloadConfig {
+  pub debounce_ms:       Option<u64>,
+  pub warn_and_continue: Option<bool>
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RuntimeConfig {
   pub timeline:
-    Option<RuntimeTimelineConfig>
+    Option<RuntimeTimelineConfig>,
+  pub hot_reload:
+    Option<RuntimeHotReloadConfig>
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -267,6 +277,39 @@ impl RootConfig {
             );
           }
         }
+        if let Some(tracks) =
+          &t.enabled_tracks
+        {
+          for (idx, tr) in
+            tracks.iter().enumerate()
+          {
+            if tr.trim().is_empty() {
+              return Err(
+                ConfigError::Validate(format!(
+                  "runtime.timeline.enabled_tracks[{idx}] must not be empty"
+                ))
+              );
+            }
+          }
+        }
+      }
+
+      if let Some(h) =
+        &runtime.hot_reload
+      {
+        if let Some(ms) = h.debounce_ms
+        {
+          if ms == 0 {
+            return Err(
+              ConfigError::Validate(
+                "runtime.hot_reload.\
+                 debounce_ms must be \
+                 >= 1"
+                  .to_owned()
+              )
+            );
+          }
+        }
       }
     }
 
@@ -384,6 +427,17 @@ impl RootConfig {
       .unwrap_or(false)
   }
 
+  pub fn runtime_timeline_deterministic(
+    &self
+  ) -> bool {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| r.timeline.as_ref())
+      .and_then(|t| t.deterministic)
+      .unwrap_or(true)
+  }
+
   pub fn runtime_timeline_fixed_dt_secs(
     &self
   ) -> f32 {
@@ -404,6 +458,44 @@ impl RootConfig {
       .and_then(|r| r.timeline.as_ref())
       .and_then(|t| t.max_catchup_steps)
       .unwrap_or(4)
+  }
+
+  pub fn runtime_timeline_enabled_tracks(
+    &self
+  ) -> Option<&[String]> {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| r.timeline.as_ref())
+      .and_then(|t| {
+        t.enabled_tracks.as_deref()
+      })
+  }
+
+  pub fn runtime_hot_reload_debounce_ms(
+    &self
+  ) -> u64 {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| {
+        r.hot_reload.as_ref()
+      })
+      .and_then(|h| h.debounce_ms)
+      .unwrap_or(250)
+  }
+
+  pub fn runtime_hot_reload_warn_and_continue(
+    &self
+  ) -> bool {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| {
+        r.hot_reload.as_ref()
+      })
+      .and_then(|h| h.warn_and_continue)
+      .unwrap_or(true)
   }
 }
 

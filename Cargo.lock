@@ -2728,6 +2728,7 @@ dependencies = [
  "flatfekt-config",
  "flatfekt-schema",
  "notify",
+ "serde",
  "thiserror 2.0.18",
  "toml",
  "tracing",

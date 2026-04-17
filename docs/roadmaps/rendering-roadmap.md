@@ -25,7 +25,7 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 - [x] Add anchor/origin semantics for sprites/shapes/text and test them with fixtures
 
 ### M2 — materials and effects
-- [ ] Add sprite tint/opacity controls
+- [x] Add sprite tint/opacity controls
 - [ ] Add simple shader/material hooks (optional; feature-gated)
 - [ ] Add layered post-processing pipeline hooks (optional; future-ready)
 
@@ -35,7 +35,7 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 
 ### M3 — offscreen rendering and capture
 - [ ] Add render-to-texture support for compositing
-- [ ] Add screenshot capture API (used by `export-roadmap.md`)
+- [x] Add screenshot capture API (used by `export-roadmap.md`)
 
 ## Grouped tasks
 

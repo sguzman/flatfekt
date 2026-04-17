@@ -1,4 +1,8 @@
 use bevy::prelude::*;
+use flatfekt_schema::{
+  ScenePatch,
+  TimelineEvent
+};
 use tracing::instrument;
 
 #[derive(
@@ -69,6 +73,424 @@ pub struct FadeTween {
   pub start_alpha: f32,
   pub end_alpha:   f32,
   pub easing:      Easing
+}
+
+#[derive(Resource, Default)]
+pub struct TimelinePlan {
+  pub events: Vec<PlannedEvent>,
+  pub cursor: usize
+}
+
+#[derive(Debug, Clone)]
+pub struct PlannedEvent {
+  pub time:    f32,
+  pub action:  String,
+  pub target:  Option<String>,
+  pub payload: Option<toml::Value>,
+  pub track:   Option<String>,
+  pub label:   Option<String>,
+  pub group:   Option<String>,
+  pub after:   Option<String>
+}
+
+#[instrument(level = "info", skip_all)]
+pub fn init_timeline_plan(
+  cfg: Res<crate::ConfigRes>,
+  scene: Res<crate::SceneRes>,
+  mut commands: Commands
+) {
+  let mut plan =
+    TimelinePlan::default();
+  let Some(timeline) =
+    &scene.0.scene.timeline
+  else {
+    commands.insert_resource(plan);
+    return;
+  };
+
+  let enabled_tracks: Option<
+    std::collections::HashSet<&str>
+  > = cfg
+    .0
+    .runtime_timeline_enabled_tracks()
+    .map(|tracks| {
+      tracks
+        .iter()
+        .map(|s| s.as_str())
+        .collect()
+    });
+
+  for (idx, ev) in
+    timeline.iter().enumerate()
+  {
+    if !ev.time.is_finite()
+      || ev.time < 0.0
+    {
+      tracing::error!(
+        idx,
+        time = ev.time,
+        "timeline event time must be \
+         finite and non-negative"
+      );
+      continue;
+    }
+
+    let (
+      track,
+      payload,
+      label,
+      group,
+      after
+    ) = parse_event_meta(ev);
+    if let Some(enabled) =
+      &enabled_tracks
+    {
+      if let Some(tr) = track.as_deref()
+      {
+        if !enabled.contains(tr) {
+          continue;
+        }
+      }
+    }
+
+    plan.events.push(PlannedEvent {
+      time: ev.time,
+      action: ev.action.clone(),
+      target: ev.target.clone(),
+      payload,
+      track,
+      label,
+      group,
+      after
+    });
+  }
+
+  let mut label_times =
+    std::collections::HashMap::<
+      String,
+      f32
+    >::new();
+  for ev in &plan.events {
+    if let Some(label) = &ev.label {
+      label_times
+        .insert(label.clone(), ev.time);
+    }
+  }
+  for ev in &mut plan.events {
+    let Some(after) = &ev.after else {
+      continue;
+    };
+    let Some(base) =
+      label_times.get(after).copied()
+    else {
+      tracing::error!(
+        after = after.as_str(),
+        "timeline event references \
+         unknown label in \
+         payload.after"
+      );
+      continue;
+    };
+    ev.time = base + ev.time;
+  }
+
+  plan.events.sort_by(|a, b| {
+    a.time
+      .partial_cmp(&b.time)
+      .unwrap_or(
+        std::cmp::Ordering::Equal
+      )
+  });
+  plan.cursor = 0;
+  commands.insert_resource(plan);
+}
+
+fn parse_event_meta(
+  ev: &TimelineEvent
+) -> (
+  Option<String>,
+  Option<toml::Value>,
+  Option<String>,
+  Option<String>,
+  Option<String>
+) {
+  let Some(payload) = &ev.payload
+  else {
+    return (
+      None, None, None, None, None
+    );
+  };
+  let track = payload
+    .get("track")
+    .and_then(|v| v.as_str())
+    .map(|s| s.to_owned());
+  let label = payload
+    .get("label")
+    .and_then(|v| v.as_str())
+    .map(|s| s.to_owned());
+  let group = payload
+    .get("group")
+    .and_then(|v| v.as_str())
+    .map(|s| s.to_owned());
+  let after = payload
+    .get("after")
+    .and_then(|v| v.as_str())
+    .map(|s| s.to_owned());
+  (
+    track,
+    Some(payload.clone()),
+    label,
+    group,
+    after
+  )
+}
+
+#[instrument(level = "info", skip_all)]
+pub fn seek_timeline_system(
+  mut events: MessageReader<
+    crate::SeekTimeline
+  >,
+  mut clock: ResMut<
+    crate::TimelineClock
+  >,
+  mut plan: ResMut<TimelinePlan>
+) {
+  for ev in events.read() {
+    if !ev.t_secs.is_finite() {
+      tracing::warn!(
+        t_secs = ev.t_secs,
+        "seek ignored: non-finite time"
+      );
+      continue;
+    }
+    clock.t_secs = ev.t_secs.max(0.0);
+    clock.accumulator_secs = 0.0;
+    clock.playing = ev.playing;
+    plan.cursor =
+      plan.events.partition_point(
+        |e| e.time < clock.t_secs
+      );
+    tracing::info!(
+      t_secs = clock.t_secs,
+      cursor = plan.cursor,
+      "timeline seek applied"
+    );
+  }
+}
+
+#[instrument(level = "debug", skip_all)]
+pub fn process_timeline_events(
+  clock: Res<crate::TimelineClock>,
+  mut plan: ResMut<TimelinePlan>,
+  entity_map: Res<crate::EntityMap>,
+  q_transform: Query<&Transform>,
+  mut last_t: Local<f32>,
+  mut commands: Commands
+) {
+  if !clock.enabled {
+    return;
+  }
+  let t = clock.t_secs;
+  if t < *last_t {
+    plan.cursor = 0;
+  }
+  *last_t = t;
+
+  while plan.cursor < plan.events.len()
+    && plan.events[plan.cursor].time
+      <= t
+  {
+    let ev =
+      plan.events[plan.cursor].clone();
+    plan.cursor += 1;
+    dispatch_event(
+      &ev,
+      &entity_map,
+      &q_transform,
+      &mut commands
+    );
+  }
+}
+
+fn dispatch_event(
+  ev: &PlannedEvent,
+  entity_map: &crate::EntityMap,
+  q_transform: &Query<&Transform>,
+  commands: &mut Commands
+) {
+  match ev.action.as_str() {
+    | "apply_patch" => {
+      if let Some(p) = &ev.payload {
+        if let Ok(patch) =
+          parse_scene_patch(p)
+        {
+          commands.trigger(
+            crate::ApplyPatch(patch)
+          );
+        } else {
+          tracing::warn!(
+            action = %ev.action,
+            "failed to parse ScenePatch payload"
+          );
+        }
+      }
+    }
+    | "transition_scene" => {
+      if let Some(p) = &ev.payload {
+        if let Some(path) = p
+          .get("path")
+          .and_then(|v| v.as_str())
+        {
+          commands.trigger(
+            crate::TransitionScene(
+              std::path::PathBuf::from(
+                path
+              )
+            )
+          );
+        } else {
+          tracing::warn!(
+            "transition_scene \
+             requires payload.path"
+          );
+        }
+      }
+    }
+    | "start_tween" => {
+      if let Some(target) = &ev.target {
+        if let Some(list) =
+          entity_map.0.get(target)
+        {
+          for ent in list {
+            if let Some(p) = &ev.payload
+            {
+              start_transform_tween(
+                *ent,
+                ev.time,
+                q_transform
+                  .get(*ent)
+                  .ok(),
+                p,
+                commands
+              );
+            }
+          }
+        } else {
+          tracing::warn!(
+            target,
+            "start_tween target not \
+             found"
+          );
+        }
+      } else {
+        tracing::warn!(
+          "start_tween requires target"
+        );
+      }
+    }
+    | "stop_tween" => {
+      if let Some(target) = &ev.target {
+        if let Some(list) =
+          entity_map.0.get(target)
+        {
+          for ent in list {
+            commands.entity(*ent).remove::<
+              TransformTween
+            >();
+            commands
+              .entity(*ent)
+              .remove::<ColorTween>();
+            commands
+              .entity(*ent)
+              .remove::<FadeTween>();
+          }
+        }
+      }
+    }
+    | other => {
+      tracing::debug!(
+        action = other,
+        "ignoring unknown timeline \
+         action"
+      );
+    }
+  }
+}
+
+fn parse_scene_patch(
+  v: &toml::Value
+) -> Result<ScenePatch, toml::de::Error>
+{
+  let s = toml::to_string(v)
+    .unwrap_or_default();
+  toml::from_str(&s)
+}
+
+fn start_transform_tween(
+  ent: Entity,
+  start_time: f32,
+  start_transform: Option<&Transform>,
+  payload: &toml::Value,
+  commands: &mut Commands
+) {
+  let duration = payload
+    .get("duration")
+    .and_then(|v| v.as_float())
+    .unwrap_or(1.0)
+    as f32;
+  let easing = payload
+    .get("easing")
+    .and_then(|v| v.as_str())
+    .and_then(parse_easing)
+    .unwrap_or(Easing::Linear);
+  let Some(end) = payload.get("end")
+  else {
+    tracing::warn!(
+      "start_tween requires \
+       payload.end"
+    );
+    return;
+  };
+  let x = end
+    .get("x")
+    .and_then(|v| v.as_float())
+    .unwrap_or(0.0) as f32;
+  let y = end
+    .get("y")
+    .and_then(|v| v.as_float())
+    .unwrap_or(0.0) as f32;
+  let z = end
+    .get("z")
+    .and_then(|v| v.as_float())
+    .unwrap_or(0.0) as f32;
+  let start = start_transform
+    .cloned()
+    .unwrap_or_default();
+  commands.entity(ent).insert(
+    TransformTween {
+      start_time,
+      duration: duration.max(0.0001),
+      start_transform: start,
+      end_transform:
+        Transform::from_translation(
+          Vec3::new(x, y, z)
+        ),
+      easing
+    }
+  );
+}
+
+fn parse_easing(
+  s: &str
+) -> Option<Easing> {
+  Some(match s {
+    | "linear" => Easing::Linear,
+    | "quad_in" => Easing::QuadIn,
+    | "quad_out" => Easing::QuadOut,
+    | "cubic_in" => Easing::CubicIn,
+    | "cubic_out" => Easing::CubicOut,
+    | _ => return None
+  })
 }
 
 #[instrument(level = "trace", skip_all)]

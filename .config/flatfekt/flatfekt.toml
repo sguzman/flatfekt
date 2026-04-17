@@ -50,5 +50,16 @@ hot_reload = false
 # Enable deterministic-ish timeline stepping. When enabled, the runtime advances a
 # `TimelineClock` using a fixed dt, with a catch-up cap per frame.
 enabled = true
+deterministic = true
 fixed_dt_secs = 0.016666667
 max_catchup_steps = 4
+
+# Optional: restrict which timeline event tracks run.
+# enabled_tracks = ["main", "camera"]
+
+[runtime.hot_reload]
+# Debounce changes before attempting reload.
+debounce_ms = 250
+
+# If true, reload errors are logged and the app keeps running. If false, the app exits.
+warn_and_continue = true

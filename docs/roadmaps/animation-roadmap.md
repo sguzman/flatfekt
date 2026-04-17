@@ -20,14 +20,14 @@ Provide time-based change primitives (tweens, keyframes, timelines) for declarat
 - [x] Add `tracing` instrumentation for timeline start/stop/apply
 
 ### M1 — timeline events from TOML
-- [ ] Implement timeline event loader and validator (time-ordered, non-negative)
-- [ ] Implement event types: apply patch, start tween, stop tween, scene transition (optional)
-- [ ] Add deterministic playback mode (fixed dt) behind config knob
+- [x] Implement timeline event loader and validator (time-ordered, non-negative)
+- [x] Implement event types: apply patch, start tween, stop tween, scene transition (optional)
+- [x] Add deterministic playback mode (fixed dt) behind config knob
 
 ### M2 — sequencing + composition
-- [ ] Add named tracks and track-level enable/disable
-- [ ] Add event grouping (labels) and seek/scrub support (used by UI tooling)
-- [ ] Add “relative time” triggers (after event X) with deterministic resolution
+- [x] Add named tracks and track-level enable/disable
+- [x] Add event grouping (labels) and seek/scrub support (used by UI tooling)
+- [x] Add “relative time” triggers (after event X) with deterministic resolution
 
 ## Playback controls
 - [x] Add rewind semantics definition (what “rewind” means for tweens/patches) and implement it

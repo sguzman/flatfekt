@@ -301,10 +301,12 @@ pub struct Transform2d {
 )]
 #[serde(deny_unknown_fields)]
 pub struct SpriteSpec {
-  pub image:  AssetRef,
-  pub width:  Option<f32>,
-  pub height: Option<f32>,
-  pub anchor: Option<String>
+  pub image:   AssetRef,
+  pub width:   Option<f32>,
+  pub height:  Option<f32>,
+  pub anchor:  Option<String>,
+  pub tint:    Option<ColorRgba>,
+  pub opacity: Option<f32>
 }
 
 #[derive(
@@ -733,6 +735,28 @@ impl Scene {
             ),
             anchor
           )?;
+        }
+        if let Some(tint) = sprite.tint
+        {
+          validate_color(
+            &format!(
+              "scene.entities[{idx}].\
+               sprite.tint"
+            ),
+            &tint
+          )?;
+        }
+        if let Some(opacity) =
+          sprite.opacity
+        {
+          if !opacity.is_finite()
+            || !(0.0..=1.0)
+              .contains(&opacity)
+          {
+            return Err(SceneError::Validate(format!(
+              "scene.entities[{idx}].sprite.opacity must be within [0, 1]"
+            )));
+          }
         }
       }
 

@@ -26,6 +26,7 @@ use flatfekt_schema::{
   SceneFile,
   Transform2d
 };
+use serde::Serialize;
 use tracing::instrument;
 
 #[derive(
@@ -197,6 +198,8 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_message::<ApplyPatch>()
       .add_message::<TransitionScene>()
       .add_message::<SnapshotScene>()
+      .add_message::<RequestScreenshot>()
+      .add_message::<SeekTimeline>()
       .configure_sets(Startup, FlatfektSet::Instantiate)
       .configure_sets(
         Update,
@@ -216,6 +219,11 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_systems(
         Startup,
+        animation::init_timeline_plan
+          .after(init_timeline_clock)
+      )
+      .add_systems(
+        Startup,
         instantiate_scene.in_set(FlatfektSet::Instantiate)
       )
       .add_systems(
@@ -224,11 +232,32 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_systems(
         Update,
-        (apply_patch_system, scene_transition_system, snapshot_scene_system).in_set(FlatfektSet::SimTick)
+        animation::seek_timeline_system
+          .in_set(FlatfektSet::SimTick)
+          .after(timeline_driver)
       )
       .add_systems(
         Update,
-        animation::update_tweens.in_set(FlatfektSet::SimTick).after(timeline_driver)
+        animation::process_timeline_events
+          .in_set(FlatfektSet::SimTick)
+          .after(animation::seek_timeline_system)
+      )
+      .add_systems(
+        Update,
+        animation::update_tweens
+          .in_set(FlatfektSet::SimTick)
+          .after(animation::process_timeline_events)
+      )
+      .add_systems(
+        Update,
+        (
+          apply_patch_system,
+          scene_transition_system,
+          screenshot_system,
+          snapshot_scene_system
+        )
+          .in_set(FlatfektSet::SimTick)
+          .after(animation::process_timeline_events)
       )
       .add_systems(
         Update,
@@ -258,20 +287,51 @@ pub fn build_app(
     let mut watcher =
       notify::recommended_watcher(
         move |res| {
-          if let Ok(event) = res {
-            let _ = tx.send(event);
+          match res {
+            | Ok(event) => {
+              let _ = tx.send(event);
+            }
+            | Err(err) => {
+              tracing::warn!(
+                "hot reload watcher \
+                 error: {}",
+                err
+              );
+            }
           }
         }
       )
-      .unwrap();
+      .map_err(|err| {
+        tracing::error!(
+          "failed to initialize hot \
+           reload watcher: {}",
+          err
+        );
+        RuntimeError::Scene(
+          SceneError::Validate(
+            format!(
+              "failed to initialize \
+               hot reload watcher: \
+               {err}"
+            )
+          )
+        )
+      })?;
     use notify::Watcher;
-    watcher.watch(&scene_path, notify::RecursiveMode::NonRecursive).unwrap();
-    app.insert_resource(
-      SceneFileWatcher {
+    if let Err(err) = watcher.watch(
+      &scene_path,
+      notify::RecursiveMode::NonRecursive
+    ) {
+      tracing::error!(
+        "failed to watch scene for hot reload: {}",
+        err
+      );
+    } else {
+      app.insert_resource(SceneFileWatcher {
         receiver: rx,
         _watcher: watcher
-      }
-    );
+      });
+    }
   }
 
   app
@@ -336,6 +396,7 @@ fn init_timeline_clock(
 #[instrument(level = "debug", skip_all)]
 fn timeline_driver(
   time: Res<Time>,
+  cfg: Res<ConfigRes>,
   mut clock: ResMut<TimelineClock>
 ) {
   if !clock.enabled {
@@ -353,7 +414,14 @@ fn timeline_driver(
     return;
   }
 
-  let dt = time.delta_secs();
+  let dt = if cfg
+    .0
+    .runtime_timeline_deterministic()
+  {
+    clock.dt_secs
+  } else {
+    time.delta_secs()
+  };
 
   if dt.is_finite() && dt > 0.0 {
     clock.accumulator_secs += dt;
@@ -644,6 +712,19 @@ fn spawn_sprite(
       {
         sprite.custom_size =
           Some(Vec2::new(w, h));
+      }
+      if let Some(tint) = spec.tint {
+        sprite.color =
+          color_from_rgba(tint);
+      }
+      if let Some(opacity) =
+        spec.opacity
+      {
+        let mut srgba =
+          sprite.color.to_srgba();
+        srgba.alpha = opacity;
+        sprite.color =
+          Color::Srgba(srgba);
       }
       let mut entity =
         commands.spawn((sprite, tf));
@@ -996,9 +1077,13 @@ pub fn hot_reload_system(
     Res<SceneFileWatcher>
   >,
   scene_path: Option<Res<ScenePathRes>>,
+  cfg: Option<Res<ConfigRes>>,
   mut scene_res: ResMut<SceneRes>,
   mut reload_status: Local<
     ReloadStatus
+  >,
+  mut last_changed: Local<
+    Option<std::time::Instant>
   >,
   mut commands: Commands
 ) {
@@ -1008,6 +1093,20 @@ pub fn hot_reload_system(
   let Some(p) = scene_path else {
     return
   };
+
+  let cfg = cfg.as_deref();
+  let debounce_ms = cfg
+    .map(|c| {
+      c.0
+        .runtime_hot_reload_debounce_ms(
+        )
+    })
+    .unwrap_or(250);
+  let warn_and_continue = cfg
+    .map(|c| {
+      c.0.runtime_hot_reload_warn_and_continue()
+    })
+    .unwrap_or(true);
 
   let mut changed = false;
   for event in w.receiver.try_iter() {
@@ -1025,6 +1124,23 @@ pub fn hot_reload_system(
   }
 
   if changed {
+    *last_changed =
+      Some(std::time::Instant::now());
+  }
+
+  let Some(last) = *last_changed else {
+    return;
+  };
+  if last.elapsed()
+    < std::time::Duration::from_millis(
+      debounce_ms
+    )
+  {
+    return;
+  }
+  *last_changed = None;
+
+  {
     tracing::info!(
       "Scene file change detected, \
        hot-reloading..."
@@ -1043,22 +1159,34 @@ pub fn hot_reload_system(
       | Err(err) => {
         reload_status.last_error =
           Some(err.to_string());
-        tracing::error!(
-          "Hot-reload failed: {}",
-          err
-        );
+        if warn_and_continue {
+          tracing::warn!(
+            "Hot-reload failed \
+             (continuing): {}",
+            err
+          );
+        } else {
+          tracing::error!(
+            "Hot-reload failed \
+             (exiting): {}",
+            err
+          );
+          commands
+            .remove_resource::<SceneFileWatcher>();
+        }
       }
     }
   }
 }
 
-use flatfekt_schema::{
-  EntityPatch,
-  EntitySpec,
-  ScenePatch
-};
+use flatfekt_schema::ScenePatch;
 
-#[derive(Message, Clone, Debug)]
+#[derive(
+  Message,
+  bevy::prelude::Event,
+  Clone,
+  Debug,
+)]
 pub struct ApplyPatch(pub ScenePatch);
 
 #[instrument(level = "info", skip_all)]
@@ -1136,7 +1264,12 @@ pub fn apply_patch_system(
   }
 }
 
-#[derive(Message, Clone, Debug)]
+#[derive(
+  Message,
+  bevy::prelude::Event,
+  Clone,
+  Debug,
+)]
 pub struct TransitionScene(pub PathBuf);
 
 #[instrument(level = "info", skip_all)]
@@ -1182,8 +1315,92 @@ pub fn scene_transition_system(
   }
 }
 
-#[derive(Message, Clone, Debug)]
+#[derive(
+  Message,
+  bevy::prelude::Event,
+  Clone,
+  Debug,
+)]
 pub struct SnapshotScene;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SceneStateSnapshot {
+  pub t_secs:     f32,
+  pub playing:    bool,
+  pub transforms:
+    std::collections::BTreeMap<
+      String,
+      Transform2d
+    >
+}
+
+#[derive(
+  Message,
+  bevy::prelude::Event,
+  Clone,
+  Debug,
+)]
+pub struct RequestScreenshot;
+
+#[instrument(level = "info", skip_all)]
+pub fn screenshot_system(
+  mut events: MessageReader<
+    RequestScreenshot
+  >,
+  mut commands: Commands
+) {
+  use bevy::render::view::screenshot::{
+    save_to_disk,
+    Screenshot
+  };
+
+  for _ in events.read() {
+    let dir = std::path::PathBuf::from(
+      ".cache"
+    )
+    .join("flatfekt")
+    .join("screenshots");
+    if let Err(e) =
+      std::fs::create_dir_all(&dir)
+    {
+      tracing::error!(
+        "failed to create screenshot \
+         dir: {}",
+        e
+      );
+      continue;
+    }
+    let ts =
+      std::time::SystemTime::now()
+        .duration_since(
+          std::time::UNIX_EPOCH
+        )
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let path = dir
+      .join(format!("shot-{ts}.png"));
+    tracing::info!(
+      path = %path.display(),
+      "capturing screenshot"
+    );
+    commands
+      .spawn(
+        Screenshot::primary_window()
+      )
+      .observe(save_to_disk(path));
+  }
+}
+
+#[derive(
+  Message,
+  bevy::prelude::Event,
+  Clone,
+  Debug,
+)]
+pub struct SeekTimeline {
+  pub t_secs:  f32,
+  pub playing: bool
+}
 
 #[instrument(level = "info", skip_all)]
 pub fn snapshot_scene_system(
@@ -1191,7 +1408,10 @@ pub fn snapshot_scene_system(
     SnapshotScene
   >,
   scene_res: Res<SceneRes>,
-  scene_path: Res<ScenePathRes>
+  scene_path: Res<ScenePathRes>,
+  clock: Res<TimelineClock>,
+  entity_map: Res<EntityMap>,
+  q_transform: Query<&Transform>
 ) {
   for _ in events.read() {
     let scene_name = scene_path
@@ -1220,14 +1440,14 @@ pub fn snapshot_scene_system(
       continue;
     }
 
-    let snapshot_path = snapshot_dir
-      .join("snapshot.toml");
+    let scene_snapshot_path =
+      snapshot_dir.join("scene.toml");
     match toml::to_string_pretty(
       &scene_res.0.scene
     ) {
       | Ok(s) => {
         if let Err(e) = std::fs::write(
-          &snapshot_path,
+          &scene_snapshot_path,
           s
         ) {
           tracing::error!(
@@ -1237,15 +1457,75 @@ pub fn snapshot_scene_system(
           );
         } else {
           tracing::info!(
-            "Scene snapshot saved to \
-             {:?}",
-            snapshot_path
+            "Scene spec snapshot \
+             saved to {:?}",
+            scene_snapshot_path
           );
         }
       }
       | Err(e) => {
         tracing::error!(
           "Failed to serialize scene \
+           snapshot: {}",
+          e
+        )
+      }
+    }
+
+    let mut transforms =
+      std::collections::BTreeMap::new();
+    for (id, list) in &entity_map.0 {
+      let Some(first) = list.first()
+      else {
+        continue;
+      };
+      if let Ok(tf) =
+        q_transform.get(*first)
+      {
+        transforms.insert(
+          id.clone(),
+          Transform2d {
+            x:        tf.translation.x,
+            y:        tf.translation.y,
+            rotation: None,
+            scale:    Some(tf.scale.x),
+            z:        Some(
+              tf.translation.z
+            )
+          }
+        );
+      }
+    }
+    let state = SceneStateSnapshot {
+      t_secs: clock.t_secs,
+      playing: clock.playing,
+      transforms
+    };
+
+    let state_path =
+      snapshot_dir.join("state.toml");
+    match toml::to_string_pretty(&state)
+    {
+      | Ok(s) => {
+        if let Err(e) =
+          std::fs::write(&state_path, s)
+        {
+          tracing::error!(
+            "Failed to write state \
+             snapshot: {}",
+            e
+          );
+        } else {
+          tracing::info!(
+            "Scene state snapshot \
+             saved to {:?}",
+            state_path
+          );
+        }
+      }
+      | Err(e) => {
+        tracing::error!(
+          "Failed to serialize state \
            snapshot: {}",
           e
         )

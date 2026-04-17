@@ -101,6 +101,7 @@ fn egui_control_panel(
   mut egui: EguiContexts,
   mut clock: ResMut<TimelineClock>,
   time: Res<Time>,
+  mut commands: Commands,
   scene: Res<
     flatfekt_runtime::SceneRes
   >,
@@ -206,18 +207,37 @@ fn egui_control_panel(
         clock.accumulator_secs = 0.0;
         clock.playing = false;
       }
+      if ui.button("Screenshot").clicked() {
+        tracing::info!(
+          "UI Action: Screenshot"
+        );
+        commands.trigger(
+          flatfekt_runtime::RequestScreenshot
+        );
+      }
     });
 
     let dur = clock
       .duration_secs
       .unwrap_or(100.0);
-    ui.add(
-      bevy_egui::egui::Slider::new(
-        &mut clock.t_secs,
-        0.0..=dur
+    let mut scrub = clock.t_secs;
+    let changed = ui
+      .add(
+        bevy_egui::egui::Slider::new(
+          &mut scrub,
+          0.0..=dur
+        )
+        .text("Scrubber")
       )
-      .text("Scrubber")
-    );
+      .changed();
+    if changed {
+      commands.trigger(
+        flatfekt_runtime::SeekTimeline {
+          t_secs:   scrub,
+          playing: false
+        }
+      );
+    }
 
     ui.horizontal(|ui| {
       ui.label(format!(
