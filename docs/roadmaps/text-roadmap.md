@@ -27,5 +27,5 @@ Make text a first-class visual object: font loading, fallback, styled spans, lay
 - [x] Add timed reveal/caption primitives (typewriter effect) driven by timeline events
 
 ### M3 — shader-driven text effects (optional)
-- [ ] Add optional shader effects pipeline for text (feature-gated)
-- [ ] Add effect parameter schema in TOML with validation
+- [x] Add optional shader effects pipeline for text (feature-gated)
+- [x] Add effect parameter schema in TOML with validation

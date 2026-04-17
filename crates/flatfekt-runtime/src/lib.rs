@@ -929,10 +929,18 @@ fn spawn_text(
       defaults.and_then(|d| {
         d.text_anchor.as_deref()
       })
-    })
-  {
+    }) {
     entity
       .insert(anchor_from_str(anchor));
+  }
+
+  if let Some(effects) = &spec.effects {
+    for effect in effects {
+      tracing::info!(
+        kind = %effect.kind,
+        "Applying text effect"
+      );
+    }
   }
 
   entity.id()

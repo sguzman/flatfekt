@@ -388,13 +388,30 @@ pub struct TextSpan {
 )]
 #[serde(deny_unknown_fields)]
 pub struct TextSpec {
-  pub value:  Option<String>,
-  pub spans:  Option<Vec<TextSpan>>,
-  pub font:   Option<AssetRef>,
-  pub size:   Option<f32>,
+  pub value:   Option<String>,
+  pub spans:   Option<Vec<TextSpan>>,
+  pub font:    Option<AssetRef>,
+  pub size:    Option<f32>,
+  pub color:   Option<ColorRgba>,
+  pub anchor:  Option<String>,
+  pub align:   Option<String>,
+  pub effects: Option<Vec<TextEffectSpec>>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct TextEffectSpec {
+  pub kind:   String,
   pub color:  Option<ColorRgba>,
-  pub anchor: Option<String>,
-  pub align:  Option<String>
+  pub offset: Option<[f32; 2]>,
+  pub radius: Option<f32>,
+  pub shader: Option<AssetRef>
 }
 
 #[derive(
