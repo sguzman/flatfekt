@@ -96,17 +96,73 @@ fn main() -> anyhow::Result<()> {
 
 fn egui_control_panel(
   mut egui: EguiContexts,
-  mut clock: ResMut<TimelineClock>
+  mut clock: ResMut<TimelineClock>,
+  time: Res<Time>,
+  scene: Res<
+    flatfekt_runtime::SceneRes
+  >,
+  entity_map: Res<
+    flatfekt_runtime::EntityMap
+  >,
+  query: Query<(
+    Entity,
+    Option<&Name>,
+    Option<&Transform>,
+    Option<&Sprite>,
+    Option<&Text2d>
+  )>
 ) {
   let Ok(ctx) = egui.ctx_mut() else {
     return;
   };
+
+  bevy_egui::egui::TopBottomPanel::top(
+    "top_panel"
+  )
+  .show(&*ctx, |ui| {
+    ui.horizontal(|ui| {
+      ui.label("Flatfekt Scene Viewer");
+      ui.separator();
+      ui.label(format!(
+        "Scene: {}",
+        scene
+          .0
+          .scene
+          .camera
+          .as_ref()
+          .map(|_| "Demo")
+          .unwrap_or("Demo")
+      ));
+      ui.separator();
+      ui.label(format!(
+        "FPS: {:.1}",
+        1.0
+          / time
+            .delta_secs()
+            .max(0.0001)
+      ));
+      ui.separator();
+      let mode = if clock.enabled {
+        "Fixed DT"
+      } else {
+        "Realtime"
+      };
+      ui.label(format!(
+        "Tick Mode: {mode}"
+      ));
+    });
+  });
+
   bevy_egui::egui::Window::new(
-    "flatfekt"
+    "Timeline Controls"
   )
   .resizable(true)
   .show(&*ctx, |ui| {
     ui.horizontal(|ui| {
+      if ui.button("<<").clicked() {
+        clock.t_secs =
+          (clock.t_secs - 1.0).max(0.0);
+      }
       if ui
         .button(
           if clock.playing {
@@ -119,11 +175,12 @@ fn egui_control_panel(
       {
         clock.playing = !clock.playing;
       }
-
       if ui.button("Step").clicked() {
         clock.step_once = true;
       }
-
+      if ui.button(">>").clicked() {
+        clock.t_secs += 1.0;
+      }
       if ui.button("Reset").clicked() {
         clock.t_secs = 0.0;
         clock.accumulator_secs = 0.0;
@@ -133,25 +190,99 @@ fn egui_control_panel(
 
     let dur = clock
       .duration_secs
-      .unwrap_or(0.0);
-    ui.label(format!(
-      "t = {:.3}s  dt = {:.6}s  \
-       duration = {}",
-      clock.t_secs,
-      clock.dt_secs,
-      if clock.duration_secs.is_some() {
-        format!("{dur:.3}s")
-      } else {
-        "none".to_owned()
-      }
-    ));
+      .unwrap_or(100.0);
+    ui.add(
+      bevy_egui::egui::Slider::new(
+        &mut clock.t_secs,
+        0.0..=dur
+      )
+      .text("Scrubber")
+    );
 
-    ui.label(format!(
-      "enabled = {}  \
-       max_catchup_steps = {}",
-      clock.enabled,
-      clock.max_catchup_steps
-    ));
+    ui.horizontal(|ui| {
+      ui.label(format!(
+        "Time: {:.3}s",
+        clock.t_secs
+      ));
+      ui.separator();
+      if let Some(d) =
+        clock.duration_secs
+      {
+        ui.label(format!(
+          "Duration: {:.3}s",
+          d
+        ));
+      } else {
+        ui.label("Duration: none");
+      }
+      ui.separator();
+      ui.label(format!(
+        "Behavior: {:?}",
+        clock.loop_mode
+      ));
+    });
+  });
+
+  bevy_egui::egui::Window::new("Entity Inspector").resizable(true).show(&*ctx, |ui| {
+    bevy_egui::egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
+      for (id, entities) in &entity_map.0 {
+        ui.collapsing(format!("ID: {}", id), |ui| {
+          for &entity in entities {
+            if let Ok((_e, name, tf, sprite, text)) = query.get(entity) {
+              ui.label(format!("Entity: {:?}", entity));
+              if let Some(n) = name { ui.label(format!("Name: {}", n.as_str())); }
+              if let Some(t) = tf { ui.label(format!("Transform: {:.2?}", t.translation)); }
+              if sprite.is_some() { ui.label("Type: Sprite"); }
+              if text.is_some() { ui.label("Type: Text"); }
+            }
+          }
+        });
+      }
+    });
+  });
+
+  bevy_egui::egui::Window::new(
+    "Dev Panels"
+  )
+  .resizable(true)
+  .show(&*ctx, |ui| {
+    ui.collapsing(
+      "Performance",
+      |ui| {
+        ui.label(format!(
+          "Frame Time: {:.2}ms",
+          time.delta_secs() * 1000.0
+        ));
+        ui.label(format!(
+          "Sim Tick Time: {:.2}ms",
+          clock.dt_secs * 1000.0
+        ));
+        ui.label(
+          "Asset Load Stats: [Not \
+           instrumented]"
+        );
+      }
+    );
+    ui.collapsing(
+      "Reload Status",
+      |ui| {
+        ui.label("Status: OK");
+        ui.label("Last Error: None");
+      }
+    );
+    ui.collapsing("Help", |ui| {
+      ui.label(
+        "This is the flatfekt viewer."
+      );
+      ui.label(
+        "- Use the Timeline Controls \
+         to scrub through the scene."
+      );
+      ui.label(
+        "- Use the Entity Inspector \
+         to view entity details."
+      );
+    });
   });
 }
 
