@@ -68,10 +68,6 @@ Rules:
   - Preferred verification: `cargo fmt` and `cargo test`.
   - If a verification step cannot be run, state that explicitly and why.
 
-## Commit messages
-
-- After each completed implementation pass, provide a plain (non-semver) commit message in the assistant response.
-- Do not tag releases or include semver prefixes like `feat:` / `fix:` unless explicitly requested by the repo owner.
 
 ## Safety and quality bars
 
