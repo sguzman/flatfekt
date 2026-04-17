@@ -22,6 +22,14 @@ g = 1.0
 b = 1.0
 a = 1.0
 
+[scene.playback]
+duration_secs = 6.0
+loop_mode = "loop"
+allow_user_input = true
+allow_scrub = true
+allow_rewind = true
+enable_introspection = false
+
 [[scene.entities]]
 id = "title"
 tags = ["ui", "text"]
@@ -48,4 +56,3 @@ size = 18.0
 x = 0.0
 y = 60.0
 z = 0.0
-

@@ -1,12 +1,18 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
+use bevy::prelude::*;
+use bevy_egui::{
+  EguiContexts,
+  EguiPlugin
+};
 use flatfekt_config::RootConfig;
 use flatfekt_runtime::{
   LoadError,
+  TimelineClock,
+  build_app,
   load_config,
-  load_scene,
-  run_bevy
+  load_scene
 };
 use tracing::{
   info,
@@ -48,9 +54,105 @@ fn main() -> anyhow::Result<()> {
 
   ensure_cache_layout(&scene_path)?;
 
-  run_bevy(cfg, scene_file)?;
+  let scene_allows_inspector =
+    scene_file
+      .scene
+      .playback
+      .as_ref()
+      .and_then(|p| {
+        p.enable_introspection
+      })
+      .unwrap_or(false);
+
+  let mut app =
+    build_app(cfg.clone(), scene_file)?;
+
+  if cfg.feature_ui_egui_enabled() {
+    info!("enabling egui control UI");
+    app
+      .add_plugins(EguiPlugin::default())
+      .add_systems(
+        Update,
+        egui_control_panel
+      );
+  }
+
+  if cfg
+    .feature_inspector_egui_enabled()
+    && scene_allows_inspector
+  {
+    info!(
+      "enabling bevy-inspector-egui"
+    );
+    app.add_plugins(
+      bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
+    );
+  }
+
+  app.run();
 
   Ok(())
+}
+
+fn egui_control_panel(
+  mut egui: EguiContexts,
+  mut clock: ResMut<TimelineClock>
+) {
+  let Ok(ctx) = egui.ctx_mut() else {
+    return;
+  };
+  bevy_egui::egui::Window::new(
+    "flatfekt"
+  )
+  .resizable(true)
+  .show(&*ctx, |ui| {
+    ui.horizontal(|ui| {
+      if ui
+        .button(
+          if clock.playing {
+            "Pause"
+          } else {
+            "Play"
+          }
+        )
+        .clicked()
+      {
+        clock.playing = !clock.playing;
+      }
+
+      if ui.button("Step").clicked() {
+        clock.step_once = true;
+      }
+
+      if ui.button("Reset").clicked() {
+        clock.t_secs = 0.0;
+        clock.accumulator_secs = 0.0;
+        clock.playing = false;
+      }
+    });
+
+    let dur = clock
+      .duration_secs
+      .unwrap_or(0.0);
+    ui.label(format!(
+      "t = {:.3}s  dt = {:.6}s  \
+       duration = {}",
+      clock.t_secs,
+      clock.dt_secs,
+      if clock.duration_secs.is_some() {
+        format!("{dur:.3}s")
+      } else {
+        "none".to_owned()
+      }
+    ));
+
+    ui.label(format!(
+      "enabled = {}  \
+       max_catchup_steps = {}",
+      clock.enabled,
+      clock.max_catchup_steps
+    ));
+  });
 }
 
 fn init_tracing(

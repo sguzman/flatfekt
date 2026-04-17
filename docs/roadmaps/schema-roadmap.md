@@ -40,9 +40,9 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [ ] Define timeline event spec (time, action, target, payload)
 
 ## Scene playback metadata (video-like scenes)
-- [ ] Add scene-level duration metadata in TOML (explicit `duration_secs` or equivalent)
-- [ ] Add scene-level playback policy fields (allow_user_input, allow_scrub/rewind, loop mode)
-- [ ] Add scene-level introspection toggle (enable/disable inspection features per scene)
+- [x] Add scene-level duration metadata in TOML (explicit `duration_secs` or equivalent)
+- [x] Add scene-level playback policy fields (allow_user_input, allow_scrub/rewind, loop mode)
+- [x] Add scene-level introspection toggle (enable/disable inspection features per scene)
 
 ### M3 — expressiveness and safety
 - [ ] Add conditional activation fields (feature flags, platform flags) with deterministic semantics

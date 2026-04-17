@@ -6,6 +6,9 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+bevy.workspace = true
+bevy-inspector-egui.workspace = true
+bevy_egui.workspace = true
 pollster.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true

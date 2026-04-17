@@ -341,6 +341,71 @@ impl RootConfig {
   }
 }
 
+impl RootConfig {
+  pub fn feature_ui_egui_enabled(
+    &self
+  ) -> bool {
+    self
+      .features
+      .as_ref()
+      .and_then(|f| f.ui_egui)
+      .unwrap_or(false)
+  }
+
+  pub fn feature_inspector_egui_enabled(
+    &self
+  ) -> bool {
+    self
+      .features
+      .as_ref()
+      .and_then(|f| f.inspector_egui)
+      .unwrap_or(false)
+  }
+
+  pub fn feature_hot_reload_enabled(
+    &self
+  ) -> bool {
+    self
+      .features
+      .as_ref()
+      .and_then(|f| f.hot_reload)
+      .unwrap_or(false)
+  }
+
+  pub fn runtime_timeline_enabled(
+    &self
+  ) -> bool {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| r.timeline.as_ref())
+      .and_then(|t| t.enabled)
+      .unwrap_or(false)
+  }
+
+  pub fn runtime_timeline_fixed_dt_secs(
+    &self
+  ) -> f32 {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| r.timeline.as_ref())
+      .and_then(|t| t.fixed_dt_secs)
+      .unwrap_or(1.0 / 60.0)
+  }
+
+  pub fn runtime_timeline_max_catchup_steps(
+    &self
+  ) -> u32 {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| r.timeline.as_ref())
+      .and_then(|t| t.max_catchup_steps)
+      .unwrap_or(4)
+  }
+}
+
 fn validate_rel_path(
   field: &str,
   path: &Path

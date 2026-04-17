@@ -16,10 +16,10 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
 ### M0 — basic overlay
 - [ ] Add a toggleable help overlay (configurable text)
 - [ ] Add a minimal debug overlay showing fps + scene name + tick mode
-- [ ] Add an embedded control GUI (egui) for basic actions (play/pause/step/reset/toggles) behind a feature flag
-  - [ ] Add config flags under `features` (`ui_egui`, `inspector_egui`)
-  - [ ] Add `bevy_egui` integration when `features.ui_egui` is enabled
-  - [ ] Implement a basic control panel (play/pause/step/reset + time readout)
+- [x] Add an embedded control GUI (egui) for basic actions (play/pause/step/reset/toggles) behind a feature flag
+  - [x] Add config flags under `features` (`ui_egui`, `inspector_egui`)
+  - [x] Add `bevy_egui` integration when `features.ui_egui` is enabled
+  - [x] Implement a basic control panel (play/pause/step/reset + time readout)
 - [ ] Instrument UI updates with `tracing` only at boundaries (avoid per-frame spam)
 
 ### M1 — entity inspector (minimal)
@@ -35,9 +35,9 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
 - [ ] Add scene duration display and end-of-scene behavior indicators (loop/stop)
 
 ## Introspection
-- [ ] Add optional Bevy world/entity introspection using `bevy-inspector-egui` behind a feature flag, gated by scene policy
-  - [ ] Add `bevy-inspector-egui` integration when `features.inspector_egui` is enabled
-  - [ ] Gate inspector UI on scene policy (scene-level introspection toggle)
+- [x] Add optional Bevy world/entity introspection using `bevy-inspector-egui` behind a feature flag, gated by scene policy
+  - [x] Add `bevy-inspector-egui` integration when `features.inspector_egui` is enabled
+  - [x] Gate inspector UI on scene policy (scene-level introspection toggle)
 
 ### M3 — advanced dev panels
 - [ ] Add config/scene reload status panel with last error display

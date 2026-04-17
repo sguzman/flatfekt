@@ -34,3 +34,21 @@ level = "info"
 # filter = "info,flatfekt_runtime=debug,wgpu=warn"
 # filter = "debug"
 
+[features]
+# Enable an embedded control GUI (egui). When enabled, a small panel provides
+# basic playback controls and debug toggles.
+ui_egui = true
+
+# Enable developer inspector surfaces (bevy-inspector-egui). This is still gated
+# by per-scene policy.
+inspector_egui = false
+
+# (planned) hot reload support for config/scene files.
+hot_reload = false
+
+[runtime.timeline]
+# Enable deterministic-ish timeline stepping. When enabled, the runtime advances a
+# `TimelineClock` using a fixed dt, with a catch-up cap per frame.
+enabled = true
+fixed_dt_secs = 0.016666667
+max_catchup_steps = 4

@@ -100,6 +100,43 @@ pub struct SceneRes(pub SceneFile);
 pub struct AssetsRootRes(pub PathBuf);
 
 #[derive(
+  Debug, Clone, Copy, PartialEq, Eq,
+)]
+pub enum LoopMode {
+  Stop,
+  Loop
+}
+
+#[derive(Resource, Debug, Clone)]
+pub struct TimelineClock {
+  pub enabled:           bool,
+  pub playing:           bool,
+  pub t_secs:            f32,
+  pub dt_secs:           f32,
+  pub max_catchup_steps: u32,
+  pub accumulator_secs:  f32,
+  pub duration_secs:     Option<f32>,
+  pub loop_mode:         LoopMode,
+  pub step_once:         bool
+}
+
+impl Default for TimelineClock {
+  fn default() -> Self {
+    Self {
+      enabled:           false,
+      playing:           true,
+      t_secs:            0.0,
+      dt_secs:           1.0 / 60.0,
+      max_catchup_steps: 4,
+      accumulator_secs:  0.0,
+      duration_secs:     None,
+      loop_mode:         LoopMode::Stop,
+      step_once:         false
+    }
+  }
+}
+
+#[derive(
   Debug,
   Clone,
   Copy,
@@ -110,7 +147,8 @@ pub struct AssetsRootRes(pub PathBuf);
 )]
 pub enum FlatfektSet {
   Load,
-  Instantiate
+  Instantiate,
+  SimTick
 }
 
 #[derive(Resource, Default)]
@@ -144,15 +182,25 @@ impl Plugin for FlatfektRuntimePlugin {
         Update,
         (
           FlatfektSet::Load,
+          FlatfektSet::SimTick,
           FlatfektSet::Instantiate
         )
       )
       .init_resource::<SpawnedEntities>()
       .init_resource::<EntityMap>()
       .init_resource::<AssetsCacheRes>()
+      .init_resource::<TimelineClock>()
+      .add_systems(
+        Startup,
+        init_timeline_clock
+      )
       .add_systems(
         Startup,
         instantiate_scene.in_set(FlatfektSet::Instantiate)
+      )
+      .add_systems(
+        Update,
+        timeline_driver.in_set(FlatfektSet::SimTick)
       )
       .add_systems(
         Update,
@@ -164,23 +212,143 @@ impl Plugin for FlatfektRuntimePlugin {
   }
 }
 
-pub fn run_bevy(
+pub fn build_app(
   cfg: RootConfig,
   scene: SceneFile
-) -> Result<(), RuntimeError> {
+) -> Result<App, RuntimeError> {
   let root = assets_root(&cfg)?;
-
-  App::new()
+  let mut app = App::new();
+  app
     .insert_resource(ConfigRes(cfg))
     .insert_resource(SceneRes(scene))
     .insert_resource(AssetsRootRes(
       root
     ))
     .add_plugins(DefaultPlugins)
-    .add_plugins(FlatfektRuntimePlugin)
-    .run();
+    .add_plugins(FlatfektRuntimePlugin);
+  Ok(app)
+}
 
+pub fn run_bevy(
+  cfg: RootConfig,
+  scene: SceneFile
+) -> Result<(), RuntimeError> {
+  build_app(cfg, scene)?.run();
   Ok(())
+}
+
+#[instrument(level = "info", skip_all)]
+fn init_timeline_clock(
+  cfg: Res<ConfigRes>,
+  scene: Res<SceneRes>,
+  mut clock: ResMut<TimelineClock>
+) {
+  let cfg = &cfg.0;
+  let pb =
+    scene.0.scene.playback.as_ref();
+  clock.enabled =
+    cfg.runtime_timeline_enabled();
+  clock.dt_secs = cfg
+    .runtime_timeline_fixed_dt_secs();
+  clock.max_catchup_steps = cfg
+    .runtime_timeline_max_catchup_steps(
+    );
+  clock.duration_secs =
+    pb.and_then(|p| p.duration_secs);
+  clock.loop_mode =
+    match pb.and_then(|p| {
+      p.loop_mode.as_deref()
+    }) {
+      | Some("loop") => LoopMode::Loop,
+      | _ => LoopMode::Stop
+    };
+  clock.playing = true;
+  clock.t_secs = 0.0;
+  clock.accumulator_secs = 0.0;
+  clock.step_once = false;
+  tracing::info!(
+    ?clock,
+    "initialized timeline clock"
+  );
+}
+
+#[instrument(level = "debug", skip_all)]
+fn timeline_driver(
+  time: Res<Time>,
+  mut clock: ResMut<TimelineClock>
+) {
+  if !clock.enabled {
+    return;
+  }
+
+  if clock.step_once {
+    clock.step_once = false;
+    clock.t_secs += clock.dt_secs;
+    enforce_duration(&mut clock);
+    return;
+  }
+
+  if !clock.playing {
+    return;
+  }
+
+  let dt = time.delta_secs();
+  if dt.is_finite() && dt > 0.0 {
+    clock.accumulator_secs += dt;
+  }
+
+  let mut steps: u32 = 0;
+  while clock.accumulator_secs
+    >= clock.dt_secs
+    && steps < clock.max_catchup_steps
+  {
+    clock.t_secs += clock.dt_secs;
+    clock.accumulator_secs -=
+      clock.dt_secs;
+    steps += 1;
+    enforce_duration(&mut clock);
+    if !clock.playing {
+      break;
+    }
+  }
+
+  if steps == clock.max_catchup_steps
+    && clock.accumulator_secs
+      >= clock.dt_secs
+  {
+    tracing::warn!(
+      accumulator_secs =
+        clock.accumulator_secs,
+      "timeline catch-up cap hit; \
+       dropping accumulated time"
+    );
+    clock.accumulator_secs = 0.0;
+  }
+}
+
+fn enforce_duration(
+  clock: &mut TimelineClock
+) {
+  let Some(dur) = clock.duration_secs
+  else {
+    return;
+  };
+  if !dur.is_finite() || dur <= 0.0 {
+    return;
+  }
+  if clock.t_secs < dur {
+    return;
+  }
+
+  match clock.loop_mode {
+    | LoopMode::Loop => {
+      clock.t_secs = clock.t_secs % dur;
+    }
+    | LoopMode::Stop => {
+      clock.t_secs = dur;
+      clock.playing = false;
+    }
+  }
 }
 
 #[instrument(level = "info", skip_all)]

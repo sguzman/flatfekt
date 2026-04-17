@@ -86,8 +86,21 @@ pub struct Scene {
   pub camera: Option<CameraSpec>,
   pub background:
     Option<BackgroundSpec>,
+  pub playback: Option<PlaybackSpec>,
   pub defaults: Option<DefaultsSpec>,
   pub entities:       Vec<EntitySpec>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlaybackSpec {
+  pub duration_secs:        Option<f32>,
+  pub loop_mode: Option<String>,
+  pub allow_user_input: Option<bool>,
+  pub allow_scrub: Option<bool>,
+  pub allow_rewind: Option<bool>,
+  pub enable_introspection:
+    Option<bool>
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -352,6 +365,63 @@ impl Scene {
            clear_color",
           &c
         )?;
+      }
+    }
+
+    if let Some(pb) = &self.playback {
+      if let Some(dur) =
+        pb.duration_secs
+      {
+        if !dur.is_finite()
+          || dur <= 0.0
+        {
+          return Err(
+            SceneError::Validate(
+              "scene.playback.\
+               duration_secs must be \
+               > 0"
+                .to_owned()
+            )
+          );
+        }
+      }
+      if let Some(mode) =
+        pb.loop_mode.as_deref()
+      {
+        let ok = matches!(
+          mode,
+          "stop" | "loop"
+        );
+        if !ok {
+          return Err(
+            SceneError::Validate(
+              format!(
+                "scene.playback.\
+                 loop_mode unsupported \
+                 value {:?} (expected \
+                 \"stop\" or \"loop\")",
+                mode
+              )
+            )
+          );
+        }
+      }
+      if pb
+        .allow_rewind
+        .unwrap_or(false)
+        && !pb
+          .allow_scrub
+          .unwrap_or(false)
+      {
+        return Err(
+          SceneError::Validate(
+            "scene.playback.\
+             allow_rewind requires \
+             scene.playback.\
+             allow_scrub"
+              .to_owned()
+          )
+        );
       }
     }
 
