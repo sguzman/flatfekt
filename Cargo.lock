@@ -2481,6 +2481,8 @@ name = "flatfekt-runtime"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_camera",
+ "bevy_mesh",
  "flatfekt-assets",
  "flatfekt-config",
  "flatfekt-schema",

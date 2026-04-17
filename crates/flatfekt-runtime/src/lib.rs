@@ -6,10 +6,10 @@ use std::path::{
   PathBuf
 };
 
-use bevy::prelude::{
-  Projection,
-  *
-};
+use bevy::prelude::*;
+use bevy::sprite::Anchor;
+use bevy_camera::ScalingMode;
+use bevy_mesh::Mesh2d;
 use flatfekt_assets::resolve::{
   AssetResolveError,
   assets_root,
@@ -82,12 +82,8 @@ impl Plugin for FlatfektRuntimePlugin {
     &self,
     app: &mut App
   ) {
-    app
-      .add_message::<ResetScene>()
-      .configure_sets(
-        Startup,
-        FlatfektSet::Instantiate
-      )
+    app.add_message::<ResetScene>()
+      .configure_sets(Startup, FlatfektSet::Instantiate)
       .configure_sets(
         Update,
         (
@@ -95,26 +91,18 @@ impl Plugin for FlatfektRuntimePlugin {
           FlatfektSet::Instantiate
         )
       )
-      .init_resource::<SpawnedEntities>(
-      )
+      .init_resource::<SpawnedEntities>()
       .init_resource::<EntityMap>()
       .add_systems(
         Startup,
-        instantiate_scene.in_set(
-          FlatfektSet::Instantiate
-        )
+        instantiate_scene.in_set(FlatfektSet::Instantiate)
       )
       .add_systems(
         Update,
-        (
-          reset_scene_system,
-          instantiate_scene
-        )
+        (reset_scene_system, instantiate_scene)
           .chain()
           .run_if(bevy::ecs::schedule::common_conditions::on_message::<ResetScene>)
-          .in_set(
-            FlatfektSet::Instantiate
-          )
+          .in_set(FlatfektSet::Instantiate)
       );
   }
 }
@@ -145,6 +133,10 @@ fn instantiate_scene(
   cfg: Res<ConfigRes>,
   scene: Res<SceneRes>,
   assets_root: Res<AssetsRootRes>,
+  mut meshes: ResMut<Assets<Mesh>>,
+  mut materials: ResMut<
+    Assets<ColorMaterial>
+  >,
   mut spawned: ResMut<SpawnedEntities>,
   mut entity_map: ResMut<EntityMap>
 ) {
@@ -164,16 +156,19 @@ fn instantiate_scene(
         Vec3::new(x, y, 0.0)
       )
     );
-    if let Some(zoom) = c.zoom {
-      camera.insert(
-        Projection::Orthographic(
-          bevy::prelude::OrthographicProjection {
-            scale: 1.0 / zoom,
-            ..bevy::prelude::OrthographicProjection::default_2d()
-          }
-        )
-      );
+
+    let zoom = c.zoom.unwrap_or(1.0);
+    let mut ortho = OrthographicProjection::default_2d();
+    ortho.scale = 1.0 / zoom;
+    if let Some(mode) =
+      c.scaling_mode.as_deref()
+    {
+      ortho.scaling_mode =
+        scaling_mode_from_str(mode);
     }
+    camera.insert(
+      Projection::Orthographic(ortho)
+    );
   }
 
   let clear_color = scene
@@ -198,6 +193,26 @@ fn instantiate_scene(
       ent.transform
     );
 
+    if let Some(shape_spec) = &ent.shape
+    {
+      if let Some(e) = spawn_shape(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        &ent.id,
+        scene.defaults.as_ref(),
+        shape_spec,
+        tf
+      ) {
+        spawned.0.push(e);
+        entity_map
+          .0
+          .entry(ent.id.clone())
+          .or_default()
+          .push(e);
+      }
+    }
+
     if let Some(sprite_spec) =
       &ent.sprite
     {
@@ -206,6 +221,7 @@ fn instantiate_scene(
         &assets,
         &assets_root.0,
         &ent.id,
+        scene.defaults.as_ref(),
         sprite_spec,
         tf
       ) {
@@ -223,6 +239,7 @@ fn instantiate_scene(
         &mut commands,
         &assets,
         &assets_root.0,
+        scene.defaults.as_ref(),
         text_spec,
         tf
       );
@@ -262,15 +279,15 @@ fn spawn_sprite(
   assets: &AssetServer,
   assets_root: &PathBuf,
   entity_id: &str,
+  defaults: Option<
+    &flatfekt_schema::DefaultsSpec
+  >,
   spec: &flatfekt_schema::SpriteSpec,
   tf: Transform
 ) -> Option<Entity> {
   let Some(path) = spec.image.as_path()
   else {
-    tracing::error!(
-      id = %entity_id,
-      "sprite image is not a path"
-    );
+    tracing::error!(id = %entity_id, "sprite image is not a path");
     return None;
   };
 
@@ -293,17 +310,25 @@ fn spawn_sprite(
         sprite.custom_size =
           Some(Vec2::new(w, h));
       }
-      let e = commands
-        .spawn((sprite, tf))
-        .id();
-      Some(e)
+      let mut entity =
+        commands.spawn((sprite, tf));
+      if let Some(anchor) = spec
+        .anchor
+        .as_deref()
+        .or_else(|| {
+          defaults.and_then(|d| {
+            d.sprite_anchor.as_deref()
+          })
+        })
+      {
+        entity.insert(anchor_from_str(
+          anchor
+        ));
+      }
+      Some(entity.id())
     }
     | Err(err) => {
-      tracing::error!(
-        error = %err,
-        id = %entity_id,
-        "failed to load sprite image"
-      );
+      tracing::error!(error = %err, id = %entity_id, "failed to load sprite image");
       None
     }
   }
@@ -313,6 +338,9 @@ fn spawn_text(
   commands: &mut Commands,
   assets: &AssetServer,
   assets_root: &PathBuf,
+  defaults: Option<
+    &flatfekt_schema::DefaultsSpec
+  >,
   spec: &flatfekt_schema::TextSpec,
   tf: Transform
 ) -> Entity {
@@ -337,6 +365,11 @@ fn spawn_text(
   let mut text_font = TextFont {
     font_size: spec
       .size
+      .or_else(|| {
+        defaults.and_then(|d| {
+          d.text_font_size
+        })
+      })
       .unwrap_or(24.0),
     ..default()
   };
@@ -344,12 +377,19 @@ fn spawn_text(
     text_font.font = h;
   }
 
-  let justify =
-    match spec.align.as_deref() {
-      | Some("left") => Justify::Left,
-      | Some("right") => Justify::Right,
-      | _ => Justify::Center
-    };
+  let align = spec
+    .align
+    .as_deref()
+    .or_else(|| {
+      defaults.and_then(|d| {
+        d.text_align.as_deref()
+      })
+    });
+  let justify = match align {
+    | Some("left") => Justify::Left,
+    | Some("right") => Justify::Right,
+    | _ => Justify::Center
+  };
 
   let mut entity = commands.spawn((
     Text2d::new(spec.value.clone()),
@@ -364,9 +404,110 @@ fn spawn_text(
     entity.insert(TextColor(
       color_from_rgba(c)
     ));
+  } else if let Some(c) =
+    defaults.and_then(|d| d.text_color)
+  {
+    entity.insert(TextColor(
+      color_from_rgba(c)
+    ));
+  }
+
+  if let Some(anchor) = spec
+    .anchor
+    .as_deref()
+    .or_else(|| {
+      defaults.and_then(|d| {
+        d.text_anchor.as_deref()
+      })
+    })
+  {
+    entity
+      .insert(anchor_from_str(anchor));
   }
 
   entity.id()
+}
+
+fn spawn_shape(
+  commands: &mut Commands,
+  meshes: &mut Assets<Mesh>,
+  mats: &mut Assets<ColorMaterial>,
+  entity_id: &str,
+  defaults: Option<
+    &flatfekt_schema::DefaultsSpec
+  >,
+  spec: &flatfekt_schema::ShapeSpec,
+  tf: Transform
+) -> Option<Entity> {
+  let color = spec
+    .color
+    .map(color_from_rgba)
+    .or_else(|| {
+      defaults
+        .and_then(|d| d.text_color)
+        .map(color_from_rgba)
+    })
+    .unwrap_or(Color::WHITE);
+
+  match spec.kind.as_str() {
+    | "rect" => {
+      let w = spec.width?;
+      let h = spec.height?;
+      let sprite = Sprite::from_color(
+        color,
+        Vec2::new(w, h)
+      );
+      Some(
+        commands
+          .spawn((sprite, tf))
+          .id()
+      )
+    }
+    | "circle" => {
+      let r = spec.radius?;
+      let mesh = meshes.add(
+        Mesh::from(Circle::new(r))
+      );
+      let mat = mats.add(color);
+      Some(
+        commands
+          .spawn((
+            Mesh2d(mesh),
+            bevy::prelude::MeshMaterial2d(mat),
+            tf,
+            Name::new(format!(
+              "{entity_id}-circle"
+            ))
+          ))
+          .id()
+      )
+    }
+    | "polygon" => {
+      let r = spec.radius?;
+      let sides = spec.sides?;
+      let mesh =
+        meshes.add(Mesh::from(
+          RegularPolygon::new(r, sides)
+        ));
+      let mat = mats.add(color);
+      Some(
+        commands
+          .spawn((
+            Mesh2d(mesh),
+            bevy::prelude::MeshMaterial2d(mat),
+            tf,
+            Name::new(format!(
+              "{entity_id}-polygon"
+            ))
+          ))
+          .id()
+      )
+    }
+    | _ => {
+      tracing::error!(id = %entity_id, kind = %spec.kind, "unknown shape kind");
+      None
+    }
+  }
 }
 
 fn color_from_rgba(
@@ -378,6 +519,48 @@ fn color_from_rgba(
     c.b,
     c.a.unwrap_or(1.0)
   )
+}
+
+fn anchor_from_str(a: &str) -> Anchor {
+  match a {
+    | "top_left" => Anchor::TOP_LEFT,
+    | "top" => Anchor::TOP_CENTER,
+    | "top_right" => Anchor::TOP_RIGHT,
+    | "left" => Anchor::CENTER_LEFT,
+    | "right" => Anchor::CENTER_RIGHT,
+    | "bottom_left" => {
+      Anchor::BOTTOM_LEFT
+    }
+    | "bottom" => Anchor::BOTTOM_CENTER,
+    | "bottom_right" => {
+      Anchor::BOTTOM_RIGHT
+    }
+    | _ => Anchor::CENTER
+  }
+}
+
+fn scaling_mode_from_str(
+  m: &str
+) -> ScalingMode {
+  match m {
+    | "fixed_horizontal" => {
+      ScalingMode::FixedHorizontal {
+        viewport_width: 1080.0
+      }
+    }
+    | "fixed_vertical" => {
+      ScalingMode::FixedVertical {
+        viewport_height: 720.0
+      }
+    }
+    | "fixed" => {
+      ScalingMode::Fixed {
+        width:  1280.0,
+        height: 720.0
+      }
+    }
+    | _ => ScalingMode::WindowSize
+  }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -457,10 +640,7 @@ pub fn load_config(
 ) -> Result<RootConfig, LoadError> {
   let path = path.as_ref();
   flatfekt_config::RootConfig::load_from_path(path).map_err(|source| {
-    LoadError::Config {
-      path: path.to_path_buf(),
-      source
-    }
+    LoadError::Config { path: path.to_path_buf(), source }
   })
 }
 
@@ -470,9 +650,6 @@ pub fn load_scene(
 ) -> Result<SceneFile, LoadError> {
   let path = path.as_ref();
   flatfekt_schema::SceneFile::load_from_path(path).map_err(|source| {
-    LoadError::Scene {
-      path: path.to_path_buf(),
-      source
-    }
+    LoadError::Scene { path: path.to_path_buf(), source }
   })
 }

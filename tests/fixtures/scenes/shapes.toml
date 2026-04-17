@@ -1,0 +1,65 @@
+[scene]
+schema_version = "0.1"
+
+[scene.background.clear_color]
+r = 0.08
+g = 0.08
+b = 0.10
+a = 1.0
+
+[[scene.entities]]
+id = "rect"
+
+[scene.entities.shape]
+kind = "rect"
+width = 200.0
+height = 80.0
+
+[scene.entities.shape.color]
+r = 0.2
+g = 0.6
+b = 0.9
+a = 1.0
+
+[scene.entities.transform]
+x = -220.0
+y = 0.0
+z = 0.0
+
+[[scene.entities]]
+id = "circle"
+
+[scene.entities.shape]
+kind = "circle"
+radius = 60.0
+
+[scene.entities.shape.color]
+r = 0.9
+g = 0.3
+b = 0.4
+a = 1.0
+
+[scene.entities.transform]
+x = 0.0
+y = 0.0
+z = 0.0
+
+[[scene.entities]]
+id = "poly"
+
+[scene.entities.shape]
+kind = "polygon"
+radius = 70.0
+sides = 6
+
+[scene.entities.shape.color]
+r = 0.5
+g = 0.9
+b = 0.4
+a = 1.0
+
+[scene.entities.transform]
+x = 220.0
+y = 0.0
+z = 0.0
+

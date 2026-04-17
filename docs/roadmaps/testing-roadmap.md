@@ -13,7 +13,7 @@ Prove correctness and stability: unit tests, schema compatibility tests, determi
 
 ### M0 — basic unit coverage
 - [ ] Add unit tests for config parsing/validation
-- [ ] Add unit tests for scene parsing/validation
+- [x] Add unit tests for scene parsing/validation
 - [ ] Add smoke test that instantiates a minimal scene into a Bevy `App` (headless if possible)
 
 ### M1 — golden fixtures
@@ -28,4 +28,3 @@ Prove correctness and stability: unit tests, schema compatibility tests, determi
 ### M3 — benchmarks (verifiable)
 - [ ] Add benchmarks for scene load/instantiate time (criterion or built-in harness)
 - [ ] Add benchmarks for hot reload apply time and patch apply time
-

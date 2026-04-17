@@ -8,6 +8,8 @@ license.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 bevy.workspace = true
+bevy_camera.workspace = true
+bevy_mesh.workspace = true
 
 flatfekt-config = { path = "../flatfekt-config" }
 flatfekt-schema = { path = "../flatfekt-schema" }

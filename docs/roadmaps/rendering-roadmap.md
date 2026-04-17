@@ -15,14 +15,14 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 
 ### M0 — basic 2D render primitives from TOML
 - [x] Spawn sprites with explicit z-order/layering semantics
-- [ ] Spawn basic shapes (rect, circle, polygon) with color and size
+- [x] Spawn basic shapes (rect, circle, polygon) with color and size
 - [x] Add background clear color and/or background quad policy
 - [x] Add camera config: position, zoom, clear color
 
 ### M1 — layout + scaling correctness
-- [ ] Define coordinate system policy (pixels vs world units) and implement it consistently
-- [ ] Add viewport scaling modes (fit, fill, pixel-perfect) configurable
-- [ ] Add anchor/origin semantics for sprites/shapes/text and test them with fixtures
+- [x] Define coordinate system policy (pixels vs world units) and implement it consistently
+- [x] Add viewport scaling modes (fit, fill, pixel-perfect) configurable
+- [x] Add anchor/origin semantics for sprites/shapes/text and test them with fixtures
 
 ### M2 — materials and effects
 - [ ] Add sprite tint/opacity controls

@@ -9,6 +9,8 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 anyhow = "1.0.102"
 bevy = "0.18.1"
+bevy_camera = "0.18.1"
+bevy_mesh = "0.18.1"
 pollster = "0.4.0"
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"

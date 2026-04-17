@@ -1,0 +1,10 @@
+[scene]
+schema_version = "0.1"
+unknown = 123
+
+[[scene.entities]]
+id = "x"
+
+[scene.entities.text]
+value = "hi"
+

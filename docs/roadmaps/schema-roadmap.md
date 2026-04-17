@@ -28,9 +28,9 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [x] Define schema validation rules and error messages (missing fields, bad refs, invalid ranges)
 
 ### M1 — defaults, templates, composition
-- [ ] Add `defaults` table for common settings (fonts, colors, anchor defaults)
+- [x] Add `defaults` table for common settings (fonts, colors, anchor defaults)
 - [ ] Add “prefab/template” mechanism (named component bundles) and `extends` semantics
-- [ ] Add entity tags/groups for selection and bulk operations
+- [x] Add entity tags/groups for selection and bulk operations
 - [ ] Add “asset reference” indirection (logical IDs mapped to paths via config)
 
 ### M2 — deltas/patches and time
@@ -51,8 +51,8 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 ## Grouped tasks
 
 ### Format governance
-- [ ] Add `schema_version` field and document semantics
-- [ ] Add “unknown fields” policy (reject vs allow-with-warning) and implement it
+- [x] Add `schema_version` field and document semantics
+- [x] Add “unknown fields” policy (reject vs allow-with-warning) and implement it
 - [ ] Add stable ordering rules for deterministic serialization (if exporting)
 
 ### Validation ergonomics
@@ -61,4 +61,4 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 
 ### Documentation artifacts (verifiable)
 - [ ] Add a machine-checked schema doc generator (e.g., emit Markdown from Rust types) behind `tooling`
-- [ ] Add example TOML fixtures used by tests (kept under `tests/fixtures/`)
+- [x] Add example TOML fixtures used by tests (kept under `tests/fixtures/`)

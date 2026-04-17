@@ -67,6 +67,13 @@ Future work may add a “scene pack” layout (root + includes) once validation/
 ## Scheduling decision
 Initial decision: the engine defines its own **schedule sets** layered on top of Bevy (Bevy remains the underlying scheduler, but engine-owned sets control order and boundaries).
 
+## Coordinate system (2D)
+All scene values (positions, sizes, radii) are interpreted in **world units** in a right-handed 2D plane:
+
+- `transform.x/y` are world-space coordinates.
+- `transform.z` is used as render layering / z-order.
+- Shape dimensions and sprite/text sizing are expressed in the same world units unless a future schema/config explicitly changes that policy.
+
 ## Observability
 - All subsystem boundaries emit structured events/spans via `tracing`.
 - Logging level/filter are controlled via config and/or environment overrides.
