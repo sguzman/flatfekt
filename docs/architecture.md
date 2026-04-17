@@ -28,6 +28,10 @@ Typed project configuration that selects scene entrypoints, asset roots, logging
 - Crates that may depend on Bevy: runtime/rendering/UI “engine” crates and apps.
 - Crates that must remain Bevy-free: schema/config/tooling crates (so they can run in validators/CLI tools without pulling a renderer).
 
+## Toolchain and formatting
+- The repository pins its toolchain via `rust-toolchain.toml` (nightly + required components).
+- Formatting is defined by `rustfmt.toml` (intentionally aggressive); `cargo fmt` output is the canonical style.
+
 ## Observability
 - All subsystem boundaries emit structured events/spans via `tracing`.
 - Logging level/filter are controlled via config and/or environment overrides.
