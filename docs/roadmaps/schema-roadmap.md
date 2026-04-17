@@ -1,0 +1,60 @@
+# Schema roadmap (TOML scene format)
+
+## Purpose
+Define the TOML schema that describes scenes as data: entities, components, assets references, defaults/templates, and validation. This axis owns the *format* and its versioning/migrations.
+
+## Non-goals
+- Runtime implementation details (belongs to `runtime-roadmap.md`).
+- Rendering quality/performance tuning (belongs to `rendering-roadmap.md`).
+
+## Dependencies
+- `core-roadmap.md` (format versioning policy, config conventions).
+
+## Public surface
+- `scene.toml` (and related pack layout if applicable).
+- Schema version identifier and migration strategy.
+- Validation errors (stable, actionable messages).
+
+## Milestones
+
+### M0 — minimal scene v0.1
+- [ ] Define top-level `scene` table layout and required fields
+- [ ] Define stable `entity_id` type (string) and uniqueness rules
+- [ ] Define transform representation (2D position/rotation/scale; z-order if needed)
+- [ ] Define color representation (sRGB triples + alpha)
+- [ ] Define sprite spec (image ref + size + anchor)
+- [ ] Define text spec (string + font ref + size + alignment/anchor)
+- [ ] Define camera spec (2D camera params + clear color)
+- [ ] Define schema validation rules and error messages (missing fields, bad refs, invalid ranges)
+
+### M1 — defaults, templates, composition
+- [ ] Add `defaults` table for common settings (fonts, colors, anchor defaults)
+- [ ] Add “prefab/template” mechanism (named component bundles) and `extends` semantics
+- [ ] Add entity tags/groups for selection and bulk operations
+- [ ] Add “asset reference” indirection (logical IDs mapped to paths via config)
+
+### M2 — deltas/patches and time
+- [ ] Define patch format for entity add/remove/update (stable operations)
+- [ ] Define patch addressing (by `entity_id`; optional selectors by tag)
+- [ ] Define patch validation (referential integrity, type safety)
+- [ ] Define timeline event spec (time, action, target, payload)
+
+### M3 — expressiveness and safety
+- [ ] Add conditional activation fields (feature flags, platform flags) with deterministic semantics
+- [ ] Add strict schema versioning with migration stubs (format evolution without breaking consumers)
+
+## Grouped tasks
+
+### Format governance
+- [ ] Add `schema_version` field and document semantics
+- [ ] Add “unknown fields” policy (reject vs allow-with-warning) and implement it
+- [ ] Add stable ordering rules for deterministic serialization (if exporting)
+
+### Validation ergonomics
+- [ ] Add error paths (e.g., `scene.entities[3].sprite.image`) to all validation failures
+- [ ] Add “did you mean” suggestions for unknown IDs (optional but useful)
+
+### Documentation artifacts (verifiable)
+- [ ] Add a machine-checked schema doc generator (e.g., emit Markdown from Rust types) behind `tooling`
+- [ ] Add example TOML fixtures used by tests (kept under `tests/fixtures/`)
+
