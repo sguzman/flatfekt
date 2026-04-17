@@ -29,6 +29,10 @@ Provide time-based change primitives (tweens, keyframes, timelines) for declarat
 - [ ] Add event grouping (labels) and seek/scrub support (used by UI tooling)
 - [ ] Add “relative time” triggers (after event X) with deterministic resolution
 
+## Playback controls
+- [ ] Add rewind semantics definition (what “rewind” means for tweens/patches) and implement it
+- [ ] Add seek-to-time API (jump to timestamp deterministically) with tests
+
 ### M3 — cinematic polish primitives
 - [ ] Add camera pan/zoom presets and transitions
 - [ ] Add fade in/out primitives (global or per-entity)
@@ -38,4 +42,3 @@ Provide time-based change primitives (tweens, keyframes, timelines) for declarat
 ### Determinism and repeatability
 - [ ] Ensure tween outcomes are deterministic under fixed dt (tests with golden values)
 - [ ] Ensure timeline event ordering is stable for equal timestamps
-

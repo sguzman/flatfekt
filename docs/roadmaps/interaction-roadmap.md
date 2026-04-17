@@ -15,6 +15,7 @@ Own external control surfaces: keyboard/mouse/gamepad bindings, clickable entiti
 ### M0 — basic input mapping
 - [ ] Implement “action map” schema in TOML (actions bound to keys/buttons)
 - [ ] Provide built-in actions: quit, reset, toggle overlay, pause, step
+- [ ] Provide built-in actions: play, rewind, fast-forward, seek (when enabled by scene policy)
 - [ ] Add `tracing` events on action dispatch (action name, source)
 
 ### M1 — pointing and selection
@@ -27,4 +28,3 @@ Own external control surfaces: keyboard/mouse/gamepad bindings, clickable entiti
 
 ### M3 — recording input for replay
 - [ ] Add input event recording (timestamped) feeding into `export-roadmap.md` replay
-

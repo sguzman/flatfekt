@@ -27,6 +27,13 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
 - [ ] Add play/pause/step controls for timeline playback
 - [ ] Add timeline scrubber and current time display
 
+### M2b — scene playback (video-like)
+- [ ] Add rewind/fast-forward controls (when enabled by scene policy)
+- [ ] Add scene duration display and end-of-scene behavior indicators (loop/stop)
+
+## Introspection
+- [ ] Add optional Bevy world/entity introspection using `bevy-inspector-egui` behind a feature flag, gated by scene policy
+
 ### M3 — advanced dev panels
 - [ ] Add config/scene reload status panel with last error display
 - [ ] Add performance panel (frame time, sim tick time, asset load stats)
