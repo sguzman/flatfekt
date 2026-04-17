@@ -19,8 +19,8 @@ Own how assets are referenced from TOML, resolved to paths, loaded/cached, reloa
 - [x] Add `tracing` spans for asset resolution/load/reload
 
 ### M1 — caching and dedup
-- [ ] Add caching policy (deduplicate by logical id/path)
-- [ ] Add asset metadata tracking (size, type, load time)
+- [x] Add caching policy (deduplicate by logical id/path)
+- [x] Add asset metadata tracking (size, type, load time)
 
 ### M2 — reload behavior
 - [ ] Define and implement asset hot reload semantics (with runtime hot reload)

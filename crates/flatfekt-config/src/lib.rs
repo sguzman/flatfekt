@@ -35,6 +35,36 @@ pub enum ConfigError {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct AssetsConfig {
+  pub map: Option<
+    std::collections::BTreeMap<
+      String,
+      PathBuf
+    >
+  >
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FeaturesConfig {
+  pub ui_egui:        Option<bool>,
+  pub inspector_egui: Option<bool>,
+  pub hot_reload:     Option<bool>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuntimeTimelineConfig {
+  pub enabled:           Option<bool>,
+  pub fixed_dt_secs:     Option<f32>,
+  pub max_catchup_steps: Option<u32>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuntimeConfig {
+  pub timeline:
+    Option<RuntimeTimelineConfig>
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct PlatformConfig {
   pub unix_backend: Option<String>
 }
@@ -63,7 +93,10 @@ pub struct RootConfig {
   pub app:      Option<AppConfig>,
   pub logging:  Option<LoggingConfig>,
   pub platform: Option<PlatformConfig>,
-  pub render:   Option<RenderConfig>
+  pub render:   Option<RenderConfig>,
+  pub assets:   Option<AssetsConfig>,
+  pub features: Option<FeaturesConfig>,
+  pub runtime:  Option<RuntimeConfig>
 }
 
 impl RootConfig {
@@ -177,6 +210,65 @@ impl RootConfig {
       }
     }
 
+    if let Some(assets) = &self.assets {
+      if let Some(map) = &assets.map {
+        for (id, path) in map {
+          if id.trim().is_empty() {
+            return Err(
+              ConfigError::Validate(
+                "assets.map keys must \
+                 not be empty"
+                  .to_owned()
+              )
+            );
+          }
+          validate_rel_path(
+            &format!(
+              "assets.map[{id:?}]"
+            ),
+            path
+          )?;
+        }
+      }
+    }
+
+    if let Some(runtime) = &self.runtime
+    {
+      if let Some(t) = &runtime.timeline
+      {
+        if let Some(dt) =
+          t.fixed_dt_secs
+        {
+          if !dt.is_finite()
+            || dt <= 0.0
+          {
+            return Err(
+              ConfigError::Validate(
+                "runtime.timeline.\
+                 fixed_dt_secs must \
+                 be > 0"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(steps) =
+          t.max_catchup_steps
+        {
+          if steps == 0 {
+            return Err(
+              ConfigError::Validate(
+                "runtime.timeline.\
+                 max_catchup_steps \
+                 must be >= 1"
+                  .to_owned()
+              )
+            );
+          }
+        }
+      }
+    }
+
     if self.unix_backend() != "wayland"
     {
       return Err(
@@ -234,4 +326,53 @@ impl RootConfig {
       .and_then(|a| a.mode.as_deref())
       .unwrap_or("dev")
   }
+}
+
+impl RootConfig {
+  pub fn asset_path_for_id(
+    &self,
+    id: &str
+  ) -> Option<&PathBuf> {
+    self
+      .assets
+      .as_ref()
+      .and_then(|a| a.map.as_ref())
+      .and_then(|m| m.get(id))
+  }
+}
+
+fn validate_rel_path(
+  field: &str,
+  path: &Path
+) -> Result<(), ConfigError> {
+  if path.as_os_str().is_empty() {
+    return Err(ConfigError::Validate(
+      format!(
+        "{field} must not be empty"
+      )
+    ));
+  }
+  if path.is_absolute() {
+    return Err(ConfigError::Validate(
+      format!(
+        "{field} must be relative \
+         (got {path:?})"
+      )
+    ));
+  }
+  for c in path.components() {
+    if matches!(
+      c,
+      std::path::Component::ParentDir
+    ) {
+      return Err(
+        ConfigError::Validate(format!(
+          "{field} must not contain \
+           parent traversal '..' (got \
+           {path:?})"
+        ))
+      );
+    }
+  }
+  Ok(())
 }

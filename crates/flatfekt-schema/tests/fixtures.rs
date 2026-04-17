@@ -46,3 +46,43 @@ fn fixture_unknown_fields_rejected() {
     SceneFile::load_from_path(&path);
   assert!(file.is_err());
 }
+
+#[test]
+fn all_scene_fixtures_load_or_fail_as_expected()
+ {
+  let dir = repo_root()
+    .join("tests/fixtures/scenes");
+  for entry in
+    std::fs::read_dir(dir).unwrap()
+  {
+    let entry = entry.unwrap();
+    let path = entry.path();
+    if path
+      .extension()
+      .and_then(|s| s.to_str())
+      != Some("toml")
+    {
+      continue;
+    }
+    let name = path
+      .file_name()
+      .unwrap()
+      .to_string_lossy();
+    let res =
+      SceneFile::load_from_path(&path);
+    let should_fail = name
+      .starts_with("invalid_")
+      || name.contains("unknown_field");
+    if should_fail {
+      assert!(
+        res.is_err(),
+        "{name} should fail but loaded"
+      );
+    } else {
+      assert!(
+        res.is_ok(),
+        "{name} should load: {res:?}"
+      );
+    }
+  }
+}

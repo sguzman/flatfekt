@@ -31,7 +31,7 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [x] Add `defaults` table for common settings (fonts, colors, anchor defaults)
 - [ ] Add “prefab/template” mechanism (named component bundles) and `extends` semantics
 - [x] Add entity tags/groups for selection and bulk operations
-- [ ] Add “asset reference” indirection (logical IDs mapped to paths via config)
+- [x] Add “asset reference” indirection (logical IDs mapped to paths via config)
 
 ### M2 — deltas/patches and time
 - [ ] Define patch format for entity add/remove/update (stable operations)
@@ -53,7 +53,7 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 ### Format governance
 - [x] Add `schema_version` field and document semantics
 - [x] Add “unknown fields” policy (reject vs allow-with-warning) and implement it
-- [ ] Add stable ordering rules for deterministic serialization (if exporting)
+- [x] Add stable ordering rules for deterministic serialization (if exporting)
 
 ### Validation ergonomics
 - [x] Add error paths (e.g., `scene.entities[3].sprite.image`) to all validation failures

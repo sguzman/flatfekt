@@ -447,15 +447,35 @@ impl Scene {
       if let Some(sprite) =
         &entity.sprite
       {
-        let path = sprite.image.as_path().ok_or_else(|| {
-          SceneError::Validate(format!(
-            "scene.entities[{idx}].sprite.image must be a path (id indirection not implemented yet)"
-          ))
-        })?;
-        if path.as_os_str().is_empty() {
-          return Err(SceneError::Validate(format!(
-            "scene.entities[{idx}].sprite.image must not be empty"
-          )));
+        match &sprite.image {
+          | AssetRef::Id {
+            id
+          } => {
+            if id.trim().is_empty() {
+              return Err(SceneError::Validate(format!(
+                "scene.entities[{idx}].sprite.image id must not be empty"
+              )));
+            }
+          }
+          | AssetRef::Path {
+            path
+          } => {
+            if path
+              .as_os_str()
+              .is_empty()
+            {
+              return Err(SceneError::Validate(format!(
+                "scene.entities[{idx}].sprite.image must not be empty"
+              )));
+            }
+          }
+          | AssetRef::String(s) => {
+            if s.trim().is_empty() {
+              return Err(SceneError::Validate(format!(
+                "scene.entities[{idx}].sprite.image must not be empty"
+              )));
+            }
+          }
         }
         if sprite.width.is_some_and(
           |w| {
@@ -531,6 +551,19 @@ impl Scene {
             ),
             align
           )?;
+        }
+
+        if let Some(font) = &text.font {
+          if let AssetRef::Id {
+            id
+          } = font
+          {
+            if id.trim().is_empty() {
+              return Err(SceneError::Validate(format!(
+                "scene.entities[{idx}].text.font id must not be empty"
+              )));
+            }
+          }
         }
       }
 
@@ -632,6 +665,17 @@ impl Scene {
     }
 
     Ok(())
+  }
+}
+
+impl Scene {
+  pub fn entities_sorted_by_id(
+    &self
+  ) -> Vec<&EntitySpec> {
+    let mut out: Vec<&EntitySpec> =
+      self.entities.iter().collect();
+    out.sort_by(|a, b| a.id.cmp(&b.id));
+    out
   }
 }
 

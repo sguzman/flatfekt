@@ -1,0 +1,13 @@
+[app]
+mode = "dev"
+assets_dir = "assets"
+
+[platform]
+unix_backend = "wayland"
+
+[render]
+backend = "vulkan"
+
+[assets.map]
+bad = "../secrets.txt"
+

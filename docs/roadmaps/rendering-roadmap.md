@@ -40,5 +40,5 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 ## Grouped tasks
 
 ### Deterministic draw ordering
-- [ ] Define stable sorting key for renderables (layer, z, entity_id tie-break)
-- [ ] Add tests verifying ordering is deterministic given the same scene input
+- [x] Define stable sorting key for renderables (layer, z, entity_id tie-break)
+- [x] Add tests verifying ordering is deterministic given the same scene input

@@ -37,8 +37,12 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
 
 ### M3 — scheduling and determinism
 - [x] Define engine schedule sets (Load, SimTick, RenderPrep, UI, etc.)
-- [ ] Add fixed timestep driver option for sim/timeline determinism
-- [ ] Add deterministic ordering guarantees where required (stable entity spawn order)
+- [ ] Add fixed timestep + timeline driver option for sim determinism
+  - [ ] Add config knobs under `runtime.timeline` (enabled, fixed_dt_secs, max_catchup_steps)
+  - [ ] Implement a `TimelineClock` resource (playing/paused, current time, step)
+  - [ ] Wire timeline driver to `SimTick` set (advance by fixed dt when enabled)
+  - [ ] Enforce scene duration/end-of-scene behavior (stop/loop) when duration is present
+- [x] Add deterministic ordering guarantees where required (stable entity spawn order)
 
 ## Grouped tasks
 

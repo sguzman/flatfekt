@@ -144,7 +144,10 @@ fn load_config_or_fail_fast(
         app:      None,
         logging:  None,
         platform: None,
-        render:   None
+        render:   None,
+        assets:   None,
+        features: None,
+        runtime:  None
       })
     }
     | Err(err) => Err(err.into())

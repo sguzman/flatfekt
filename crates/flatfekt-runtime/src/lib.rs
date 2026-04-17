@@ -11,6 +11,7 @@ use bevy::sprite::Anchor;
 use bevy_camera::ScalingMode;
 use bevy_mesh::Mesh2d;
 use flatfekt_assets::resolve::{
+  AssetCache,
   AssetResolveError,
   assets_root,
   bevy_load
@@ -20,13 +21,63 @@ use flatfekt_config::{
   RootConfig
 };
 use flatfekt_schema::{
-  AssetRef,
   ColorRgba,
   SceneError,
   SceneFile,
   Transform2d
 };
 use tracing::instrument;
+
+#[derive(
+  Debug,
+  Clone,
+  Copy,
+  PartialEq,
+  Eq,
+  PartialOrd,
+  Ord,
+)]
+pub struct RenderSortKey {
+  pub layer:   u32,
+  pub z_bits:  u32,
+  pub kind:    u8,
+  pub id_hash: u64
+}
+
+pub fn render_sort_key(
+  id: &str,
+  z: f32,
+  kind: RenderKind
+) -> RenderSortKey {
+  RenderSortKey {
+    layer:   0,
+    z_bits:  z.to_bits(),
+    kind:    kind as u8,
+    id_hash: fxhash64(id.as_bytes())
+  }
+}
+
+#[derive(
+  Debug, Clone, Copy, PartialEq, Eq,
+)]
+pub enum RenderKind {
+  Shape  = 0,
+  Sprite = 1,
+  Text   = 2
+}
+
+fn fxhash64(bytes: &[u8]) -> u64 {
+  // Simple stable hash for tie-break
+  // only (not crypto).
+  let mut hash: u64 =
+    0xcbf29ce484222325;
+  for b in bytes {
+    hash ^= *b as u64;
+    hash =
+      hash.wrapping_mul(0x100000001b3);
+  }
+  hash
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -75,6 +126,11 @@ pub struct EntityMap(
 #[derive(Message, Default)]
 pub struct ResetScene;
 
+#[derive(Resource, Default)]
+pub struct AssetsCacheRes(
+  pub AssetCache
+);
+
 pub struct FlatfektRuntimePlugin;
 
 impl Plugin for FlatfektRuntimePlugin {
@@ -93,6 +149,7 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .init_resource::<SpawnedEntities>()
       .init_resource::<EntityMap>()
+      .init_resource::<AssetsCacheRes>()
       .add_systems(
         Startup,
         instantiate_scene.in_set(FlatfektSet::Instantiate)
@@ -136,6 +193,9 @@ fn instantiate_scene(
   mut meshes: ResMut<Assets<Mesh>>,
   mut materials: ResMut<
     Assets<ColorMaterial>
+  >,
+  mut asset_cache: ResMut<
+    AssetsCacheRes
   >,
   mut spawned: ResMut<SpawnedEntities>,
   mut entity_map: ResMut<EntityMap>
@@ -188,69 +248,118 @@ fn instantiate_scene(
       .insert_resource(ClearColor(cc));
   }
 
+  let mut plan: Vec<SpawnOp> =
+    Vec::new();
   for ent in &scene.entities {
     let tf = transform_from_spec(
       ent.transform
     );
-
-    if let Some(shape_spec) = &ent.shape
-    {
-      if let Some(e) = spawn_shape(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        &ent.id,
-        scene.defaults.as_ref(),
-        shape_spec,
-        tf
-      ) {
-        spawned.0.push(e);
-        entity_map
-          .0
-          .entry(ent.id.clone())
-          .or_default()
-          .push(e);
-      }
+    if let Some(shape) = &ent.shape {
+      plan.push(SpawnOp {
+        id: &ent.id,
+        kind: RenderKind::Shape,
+        tf,
+        shape: Some(shape),
+        sprite: None,
+        text: None
+      });
     }
-
-    if let Some(sprite_spec) =
-      &ent.sprite
-    {
-      if let Some(e) = spawn_sprite(
-        &mut commands,
-        &assets,
-        &assets_root.0,
-        &ent.id,
-        scene.defaults.as_ref(),
-        sprite_spec,
-        tf
-      ) {
-        spawned.0.push(e);
-        entity_map
-          .0
-          .entry(ent.id.clone())
-          .or_default()
-          .push(e);
-      }
+    if let Some(sprite) = &ent.sprite {
+      plan.push(SpawnOp {
+        id: &ent.id,
+        kind: RenderKind::Sprite,
+        tf,
+        shape: None,
+        sprite: Some(sprite),
+        text: None
+      });
     }
+    if let Some(text) = &ent.text {
+      plan.push(SpawnOp {
+        id: &ent.id,
+        kind: RenderKind::Text,
+        tf,
+        shape: None,
+        sprite: None,
+        text: Some(text)
+      });
+    }
+  }
 
-    if let Some(text_spec) = &ent.text {
-      let e = spawn_text(
-        &mut commands,
-        &assets,
-        &assets_root.0,
-        scene.defaults.as_ref(),
-        text_spec,
-        tf
-      );
+  plan.sort_by_key(|op| {
+    let z = op.tf.translation.z;
+    (
+      0u32,
+      z.to_bits(),
+      op.kind as u8,
+      op.id
+    )
+  });
+
+  for op in plan {
+    let e = match op.kind {
+      | RenderKind::Shape => {
+        spawn_shape(
+          &mut commands,
+          &mut meshes,
+          &mut materials,
+          op.id,
+          scene.defaults.as_ref(),
+          op.shape.unwrap(),
+          op.tf
+        )
+      }
+      | RenderKind::Sprite => {
+        spawn_sprite(
+          &mut commands,
+          &assets,
+          &cfg.0,
+          &assets_root.0,
+          &mut asset_cache.0,
+          op.id,
+          scene.defaults.as_ref(),
+          op.sprite.unwrap(),
+          op.tf
+        )
+      }
+      | RenderKind::Text => {
+        Some(spawn_text(
+          &mut commands,
+          &assets,
+          &cfg.0,
+          &assets_root.0,
+          &mut asset_cache.0,
+          scene.defaults.as_ref(),
+          op.text.unwrap(),
+          op.tf
+        ))
+      }
+    };
+
+    if let Some(e) = e {
       spawned.0.push(e);
       entity_map
         .0
-        .entry(ent.id.clone())
+        .entry(op.id.to_owned())
         .or_default()
         .push(e);
     }
   }
+}
+
+struct SpawnOp<'a> {
+  id:     &'a str,
+  kind:   RenderKind,
+  tf:     Transform,
+  shape: Option<
+    &'a flatfekt_schema::ShapeSpec
+  >,
+  sprite: Option<
+    &'a flatfekt_schema::SpriteSpec
+  >,
+  text: Option<
+    &'a flatfekt_schema::TextSpec
+  >
 }
 
 fn transform_from_spec(
@@ -277,7 +386,9 @@ fn transform_from_spec(
 fn spawn_sprite(
   commands: &mut Commands,
   assets: &AssetServer,
+  cfg: &flatfekt_config::RootConfig,
   assets_root: &PathBuf,
+  asset_cache: &mut AssetCache,
   entity_id: &str,
   defaults: Option<
     &flatfekt_schema::DefaultsSpec
@@ -285,20 +396,14 @@ fn spawn_sprite(
   spec: &flatfekt_schema::SpriteSpec,
   tf: Transform
 ) -> Option<Entity> {
-  let Some(path) = spec.image.as_path()
-  else {
-    tracing::error!(id = %entity_id, "sprite image is not a path");
-    return None;
-  };
-
-  let image_ref = AssetRef::Path {
-    path: path.to_path_buf()
-  };
-  let handle = bevy_load::load_image(
-    assets,
-    assets_root,
-    &image_ref
-  );
+  let handle =
+    bevy_load::load_image_cached(
+      asset_cache,
+      assets,
+      cfg,
+      assets_root,
+      &spec.image
+    );
 
   match handle {
     | Ok(handle) => {
@@ -337,27 +442,23 @@ fn spawn_sprite(
 fn spawn_text(
   commands: &mut Commands,
   assets: &AssetServer,
+  cfg: &flatfekt_config::RootConfig,
   assets_root: &PathBuf,
+  asset_cache: &mut AssetCache,
   defaults: Option<
     &flatfekt_schema::DefaultsSpec
   >,
   spec: &flatfekt_schema::TextSpec,
   tf: Transform
 ) -> Entity {
-  let font_handle = spec
-    .font
-    .as_ref()
-    .and_then(|a| a.as_path())
-    .map(|p| {
-      AssetRef::Path {
-        path: p.to_path_buf()
-      }
-    })
-    .and_then(|a| {
-      bevy_load::load_font(
+  let font_handle =
+    spec.font.as_ref().and_then(|a| {
+      bevy_load::load_font_cached(
+        asset_cache,
         assets,
+        cfg,
         assets_root,
-        &a
+        a
       )
       .ok()
     });

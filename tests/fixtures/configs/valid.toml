@@ -1,0 +1,15 @@
+[app]
+name = "flatfekt"
+mode = "dev"
+scene_path = "scenes/demo.toml"
+assets_dir = "assets"
+
+[platform]
+unix_backend = "wayland"
+
+[render]
+backend = "vulkan"
+
+[assets.map]
+logo = "images/logo.png"
+
