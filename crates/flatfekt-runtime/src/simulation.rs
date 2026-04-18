@@ -442,26 +442,11 @@ pub fn sim_control_system(
 }
 
 pub fn draw_physics_debug_system(
-  scene: Res<crate::SceneRes>,
   region: Res<SimRegionRes>,
   settings: Res<crate::DebugSettings>,
   query: Query<(&Transform, &Collider)>,
   mut gizmos: Gizmos
 ) {
-  let introspection = scene
-    .0
-    .scene
-    .playback
-    .as_ref()
-    .and_then(|p| {
-      p.enable_introspection
-    })
-    .unwrap_or(false);
-
-  if !introspection {
-    return;
-  }
-
   // Draw simulation bounds
   if settings.draw_bounds {
     if let Some(bounds) = region.bounds
@@ -476,27 +461,41 @@ pub fn draw_physics_debug_system(
     }
   }
 
-  // Draw entity colliders
-  for (tf, collider) in query.iter() {
-    match collider {
-      | Collider::Circle {
-        radius
-      } => {
-        gizmos.circle_2d(
-          tf.translation.xy(),
-          *radius,
-          Color::WHITE
-        );
+  if settings.wireframe {
+    // Draw entity colliders (native)
+    for (tf, collider) in query.iter() {
+      match collider {
+        | Collider::Circle {
+          radius
+        } => {
+          gizmos.circle_2d(
+            tf.translation.xy(),
+            *radius,
+            Color::WHITE
+          );
+        }
+        | Collider::Rect {
+          size
+        } => {
+          gizmos.rect_2d(
+            tf.translation.xy(),
+            *size,
+            Color::WHITE
+          );
+        }
       }
-      | Collider::Rect {
-        size
-      } => {
-        gizmos.rect_2d(
-          tf.translation.xy(),
-          *size,
-          Color::WHITE
-        );
-      }
+      // Draw a small orientation axis
+      // line (local +X).
+      let dir =
+        (tf.rotation * Vec3::X).xy();
+      gizmos.line_2d(
+        tf.translation.xy(),
+        tf.translation.xy()
+          + dir * 10.0,
+        Color::srgba(
+          1.0, 1.0, 0.0, 0.9
+        )
+      );
     }
   }
 }

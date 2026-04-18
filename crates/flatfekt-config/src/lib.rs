@@ -148,6 +148,7 @@ pub struct RuntimeConfig {
   Debug, Clone, Deserialize, Default,
 )]
 pub struct SimulationConfig {
+  pub backend:           Option<String>,
   pub enabled:           Option<bool>,
   pub deterministic:     Option<bool>,
   pub fixed_dt_secs:     Option<f32>,
@@ -174,6 +175,25 @@ pub struct ExportBakeConfig {
 )]
 pub struct ExportConfig {
   pub bake: Option<ExportBakeConfig>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
+pub struct UiTimelineConfig {
+  pub wheel_seek_secs: Option<f32>,
+  pub wheel_seek_secs_min: Option<f32>,
+  pub wheel_seek_secs_max: Option<f32>,
+  pub wheel_seek_ctrl_scale:
+    Option<f32>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
+pub struct UiConfig {
+  pub timeline:
+    Option<UiTimelineConfig>
 }
 
 #[derive(
@@ -242,6 +262,7 @@ pub struct RootConfig {
   pub features: Option<FeaturesConfig>,
   pub runtime:    Option<RuntimeConfig>,
   pub export:     Option<ExportConfig>,
+  pub ui:         Option<UiConfig>,
   pub simulation:
     Option<SimulationConfig>
 }
@@ -471,6 +492,30 @@ impl RootConfig {
 
     if let Some(sim) = &self.simulation
     {
+      let backend = self
+        .simulation
+        .as_ref()
+        .and_then(|s| {
+          s.backend.as_deref()
+        })
+        .unwrap_or("native");
+      if backend != "native"
+        && backend != "rapier2d"
+      {
+        return Err(
+          ConfigError::Validate(
+            format!(
+              "unsupported \
+               simulation.backend \
+               {:?}; expected \
+               \"native\" or \
+               \"rapier2d\"",
+              backend
+            )
+          )
+        );
+      }
+
       if let Some(dt) =
         sim.fixed_dt_secs
       {
@@ -528,6 +573,73 @@ impl RootConfig {
           self.render_backend()
         ))
       );
+    }
+
+    if let Some(ui) = &self.ui {
+      if let Some(tl) = &ui.timeline {
+        let secs = tl
+          .wheel_seek_secs
+          .unwrap_or(0.1);
+        let min = tl
+          .wheel_seek_secs_min
+          .unwrap_or(0.005);
+        let max = tl
+          .wheel_seek_secs_max
+          .unwrap_or(2.0);
+        let scale = tl
+          .wheel_seek_ctrl_scale
+          .unwrap_or(1.2);
+
+        if !secs.is_finite()
+          || secs <= 0.0
+        {
+          return Err(
+            ConfigError::Validate(
+              "ui.timeline.\
+               wheel_seek_secs must \
+               be finite and > 0"
+                .to_owned()
+            )
+          );
+        }
+        if !min.is_finite()
+          || min <= 0.0
+        {
+          return Err(
+            ConfigError::Validate(
+              "ui.timeline.\
+               wheel_seek_secs_min \
+               must be finite and > 0"
+                .to_owned()
+            )
+          );
+        }
+        if !max.is_finite() || max < min
+        {
+          return Err(
+            ConfigError::Validate(
+              "ui.timeline.\
+               wheel_seek_secs_max \
+               must be finite and >= \
+               min"
+                .to_owned()
+            )
+          );
+        }
+        if !scale.is_finite()
+          || scale <= 1.0
+        {
+          return Err(
+            ConfigError::Validate(
+              "ui.timeline.\
+               wheel_seek_ctrl_scale \
+               must be finite and > \
+               1.0"
+                .to_owned()
+            )
+          );
+        }
+      }
     }
 
     if let Some(render) = &self.render {
@@ -747,6 +859,18 @@ impl RootConfig {
       .as_ref()
       .and_then(|s| s.enabled)
       .unwrap_or(false)
+  }
+
+  pub fn simulation_backend(
+    &self
+  ) -> &str {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| {
+        s.backend.as_deref()
+      })
+      .unwrap_or("native")
   }
 
   pub fn simulation_playing(
@@ -1016,6 +1140,58 @@ impl RootConfig {
         p.baked_requires_timeline_clock
       })
       .unwrap_or(true)
+  }
+}
+
+impl RootConfig {
+  pub fn ui_timeline_wheel_seek_secs(
+    &self
+  ) -> f32 {
+    self
+      .ui
+      .as_ref()
+      .and_then(|u| u.timeline.as_ref())
+      .and_then(|t| t.wheel_seek_secs)
+      .unwrap_or(0.1)
+  }
+
+  pub fn ui_timeline_wheel_seek_secs_min(
+    &self
+  ) -> f32 {
+    self
+      .ui
+      .as_ref()
+      .and_then(|u| u.timeline.as_ref())
+      .and_then(|t| {
+        t.wheel_seek_secs_min
+      })
+      .unwrap_or(0.005)
+  }
+
+  pub fn ui_timeline_wheel_seek_secs_max(
+    &self
+  ) -> f32 {
+    self
+      .ui
+      .as_ref()
+      .and_then(|u| u.timeline.as_ref())
+      .and_then(|t| {
+        t.wheel_seek_secs_max
+      })
+      .unwrap_or(2.0)
+  }
+
+  pub fn ui_timeline_wheel_seek_ctrl_scale(
+    &self
+  ) -> f32 {
+    self
+      .ui
+      .as_ref()
+      .and_then(|u| u.timeline.as_ref())
+      .and_then(|t| {
+        t.wheel_seek_ctrl_scale
+      })
+      .unwrap_or(1.2)
   }
 }
 

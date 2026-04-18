@@ -99,6 +99,7 @@ warn_and_continue = true
 
 [simulation]
 # Simulation stepping scaffold (separate from timeline).
+backend = "native"
 enabled = true
 deterministic = true
 fixed_dt_secs = 0.016666667
@@ -121,3 +122,12 @@ copy_assets = true
 # Bake bucket hashing algorithm. This is currently fixed to xxhash64 in code.
 hash_algorithm = "xxhash64"
 time_scale = 1.0
+
+[ui.timeline]
+# Mousewheel time seeking when the cursor is over the timeline scrubber.
+wheel_seek_secs = 0.1
+wheel_seek_secs_min = 0.005
+wheel_seek_secs_max = 2.0
+
+# While holding Ctrl, wheel notches scale the seek step by this multiplier.
+wheel_seek_ctrl_scale = 1.2

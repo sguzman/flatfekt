@@ -20,6 +20,7 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
   - [x] Add config flags under `features` (`ui_egui`, `inspector_egui`)
   - [x] Add `bevy_egui` integration when `features.ui_egui` is enabled
   - [x] Implement a basic control panel (play/pause/step/reset + time readout)
+  - [x] Ensure debug toggles render visuals (wireframe/bounds)
   - [x] Ensure control panel runs inside `EguiPrimaryContextPass` multipass loop (avoid font panic)
 - [x] Instrument UI updates with `tracing` only at boundaries (avoid per-frame spam)
 
@@ -32,6 +33,9 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
 - [x] Add timeline scrubber and current time display
   - [x] Provide scrubber UI in `flatfekt-viewer`
   - [x] Provide scrubber UI in `flatfekt` (including `play-bake`)
+  - [x] Update scrubber to apply frames while paused (baked playback seeks must redraw)
+  - [x] Add seek-to-start / seek-to-end buttons
+  - [x] Add mousewheel seek on scrubber hover (Ctrl+wheel adjusts seek step)
 
 ### M2b — scene playback (video-like)
 - [x] Add rewind/fast-forward controls (when enabled by scene policy)

@@ -10,6 +10,7 @@ use flatfekt_runtime::{
   DebugSettings,
   EntityMap,
   SceneRes,
+  SeekTimeline,
   TimelineClock
 };
 
@@ -81,14 +82,32 @@ fn ensure_primary_egui_context(
 fn egui_timeline_panel(
   mut egui: EguiContexts,
   mut clock: ResMut<TimelineClock>,
+  cfg: Res<flatfekt_runtime::ConfigRes>,
   time: Res<Time>,
   scene: Res<SceneRes>,
   entity_map: Res<EntityMap>,
-  mut debug: ResMut<DebugSettings>
+  mut debug: ResMut<DebugSettings>,
+  mut seek: MessageWriter<SeekTimeline>,
+  mut wheel_seek_step: Local<
+    Option<f32>
+  >
 ) {
   let Ok(ctx) = egui.ctx_mut() else {
     return;
   };
+
+  let wheel_seek_cfg = &cfg.0;
+  let seek_min = wheel_seek_cfg
+    .ui_timeline_wheel_seek_secs_min();
+  let seek_max = wheel_seek_cfg
+    .ui_timeline_wheel_seek_secs_max();
+  let ctrl_scale = wheel_seek_cfg
+    .ui_timeline_wheel_seek_ctrl_scale(
+    );
+  let default_step = wheel_seek_cfg
+    .ui_timeline_wheel_seek_secs();
+  let step = wheel_seek_step
+    .get_or_insert(default_step);
 
   let duration =
     clock.duration_secs.unwrap_or(0.0);
@@ -131,13 +150,29 @@ fn egui_timeline_panel(
   .resizable(true)
   .show(&*ctx, |ui| {
     ui.horizontal(|ui| {
+      if ui.button("|<").clicked() {
+        clock.t_secs = 0.0;
+        seek.write(SeekTimeline {
+          t_secs:  0.0,
+          playing: clock.playing
+        });
+      }
       if ui.button("<<").clicked() {
-        clock.t_secs =
+        let t =
           (clock.t_secs - 1.0).max(0.0);
+        clock.t_secs = t;
+        seek.write(SeekTimeline {
+          t_secs:  t,
+          playing: clock.playing
+        });
       }
       if ui.button("<").clicked() {
         clock.step_once = true;
         clock.playing = false;
+        seek.write(SeekTimeline {
+          t_secs:  clock.t_secs,
+          playing: false
+        });
       }
       if ui
         .button(
@@ -150,13 +185,39 @@ fn egui_timeline_panel(
         .clicked()
       {
         clock.playing = !clock.playing;
+        seek.write(SeekTimeline {
+          t_secs:  clock.t_secs,
+          playing: clock.playing
+        });
       }
       if ui.button(">").clicked() {
         clock.step_once = true;
         clock.playing = false;
+        seek.write(SeekTimeline {
+          t_secs:  clock.t_secs,
+          playing: false
+        });
       }
       if ui.button(">>").clicked() {
-        clock.t_secs += 1.0;
+        let t = clock.t_secs + 1.0;
+        clock.t_secs = if has_duration {
+          t.min(duration)
+        } else {
+          t
+        };
+        seek.write(SeekTimeline {
+          t_secs:  clock.t_secs,
+          playing: clock.playing
+        });
+      }
+      if ui.button(">|").clicked()
+        && has_duration
+      {
+        clock.t_secs = duration;
+        seek.write(SeekTimeline {
+          t_secs:  duration,
+          playing: clock.playing
+        });
       }
     });
 
@@ -175,8 +236,49 @@ fn egui_timeline_panel(
         .drag_value_speed(
           (duration as f64) / 250.0
         );
-      if ui.add(slider).changed() {
+      let resp = ui.add(slider);
+      if resp.hovered() {
+        let scroll_y = ui.input(|i| {
+          i.raw_scroll_delta.y
+        });
+        if scroll_y.abs() >= 0.01 {
+          let ctrl = ui.input(|i| {
+            i.modifiers.ctrl
+          });
+          let sign = scroll_y.signum();
+          if ctrl {
+            let scaled = if sign > 0.0 {
+              *step * ctrl_scale
+            } else {
+              *step / ctrl_scale
+            };
+            *step = scaled.clamp(
+              seek_min, seek_max
+            );
+            tracing::debug!(
+              wheel_seek_step = *step,
+              "timeline wheel seek \
+               step adjusted"
+            );
+          } else {
+            let dt = *step * sign;
+            let new_t = (clock.t_secs
+              + dt)
+              .clamp(0.0, duration);
+            clock.t_secs = new_t;
+            seek.write(SeekTimeline {
+              t_secs:  new_t,
+              playing: clock.playing
+            });
+          }
+        }
+      }
+      if resp.changed() {
         clock.t_secs = t;
+        seek.write(SeekTimeline {
+          t_secs:  t,
+          playing: clock.playing
+        });
       }
     } else {
       ui.label(

@@ -345,6 +345,7 @@ fn load_config_or_fail_fast(
         features:   None,
         runtime:    None,
         export:     None,
+        ui:         None,
         simulation: None
       };
       cfg.validate().context(

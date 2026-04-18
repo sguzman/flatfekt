@@ -18,9 +18,11 @@ Own the engine’s “physics/rules” evolution loop: fixed timesteps, physics 
 - [x] Add `tracing` spans around sim tick and system sets
 
 ### M1 — simple physics integration (feature-gated)
-- [x] Choose and integrate a maintained 2D physics crate behind a feature flag (document choice: Stubbed for now with native gravity)
-- [x] Define schema mapping for rigid bodies/colliders (owned by schema+runtime integration)
-- [x] Implement deterministic stepping integration tests (positions after N ticks)
+- [x] Choose a maintained 2D physics crate behind a feature flag (Rapier2D)
+- [x] Integrate Rapier2D backend behind `physics_rapier2d` (runtime plugin + fixed timestep wiring)
+- [x] Map schema rigid bodies/colliders to Rapier components for `scenes/physics_test.toml`
+- [x] Wire `DebugSettings.wireframe` to Rapier debug renderer (collider outlines + axes)
+- [x] Implement deterministic stepping integration tests (native backend)
 
 ### M2 — constraints and fields
 - [x] Add force field systems (attract/repel: Stubbed as gravity) driven by config

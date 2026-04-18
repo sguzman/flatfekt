@@ -200,6 +200,7 @@ pub mod bake;
 pub mod export;
 pub mod headless_timeline;
 pub mod interaction;
+pub mod rapier_backend;
 pub mod render_effects;
 pub mod simulation;
 
@@ -210,6 +211,22 @@ impl Plugin for FlatfektRuntimePlugin {
     &self,
     app: &mut App
   ) {
+    #[cfg(feature = "physics_rapier2d")]
+    {
+      let backend = app
+        .world()
+        .get_resource::<ConfigRes>()
+        .map(|c| {
+          c.0.simulation_backend()
+        })
+        .unwrap_or("native");
+      if backend == "rapier2d" {
+        app.add_plugins(
+          rapier_backend::FlatfektRapier2dPlugin
+        );
+      }
+    }
+
     app.add_message::<ResetScene>()
       .add_message::<ApplyPatch>()
       .add_message::<TransitionScene>()
@@ -291,10 +308,12 @@ impl Plugin for FlatfektRuntimePlugin {
           simulation::gravity_system,
           simulation::bounds_collision_system,
           simulation::entity_collision_system,
-          // simulation::draw_physics_debug_system
         )
           .in_set(FlatfektSet::SimTick)
           .after(simulation::simulation_driver)
+          .run_if(|cfg: Res<ConfigRes>| {
+            cfg.0.simulation_backend() == "native"
+          })
       )
       .add_observer(simulation::sim_control_system)
       .insert_resource(interaction::ActionMap::default())
@@ -304,7 +323,11 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_systems(
         Update,
         (
-          simulation::draw_wireframe_system,
+          simulation::draw_wireframe_system
+            .run_if(|cfg: Res<ConfigRes>| {
+              cfg.0.simulation_backend() == "native"
+            }),
+          simulation::draw_physics_debug_system,
           interaction::input_system,
           interaction::picking_system,
           agents::agent_tick_system,
@@ -804,6 +827,7 @@ fn instantiate_scene(
           &mut commands,
           &mut meshes,
           &mut materials,
+          &cfg.0,
           op.id,
           scene.defaults.as_ref(),
           op.shape.unwrap(),
@@ -947,50 +971,12 @@ fn spawn_sprite(
       }
       let mut entity =
         commands.spawn((sprite, tf));
-
-      if let Some(p) = physics {
-        entity.insert(
-          simulation::PhysicsBody {
-            velocity:    Vec2::ZERO,
-            mass:        p
-              .mass
-              .unwrap_or(1.0),
-            restitution: p
-              .restitution
-              .unwrap_or(0.5),
-            friction:    p
-              .friction
-              .unwrap_or(0.5),
-            fixed:       p.body_type
-              == "fixed"
-          }
-        );
-      }
-      if let Some(c) = collider {
-        match c.kind.as_str() {
-          | "circle" => {
-            entity.insert(
-              simulation::Collider::Circle {
-                radius: c
-                  .radius
-                  .unwrap_or(1.0)
-              }
-            );
-          }
-          | "rect" => {
-            let size = c
-              .size
-              .map(Vec2::from)
-              .unwrap_or(Vec2::ONE);
-            entity.insert(
-              simulation::Collider::Rect {
-                size
-              }
-            );
-          }
-          | _ => {}
-        }
-      }
+      insert_physics(
+        &mut entity,
+        cfg,
+        physics,
+        collider
+      );
 
       if let Some(anchor) = spec
         .anchor
@@ -1139,6 +1125,7 @@ fn spawn_shape(
   commands: &mut Commands,
   meshes: &mut Assets<Mesh>,
   mats: &mut Assets<ColorMaterial>,
+  cfg: &flatfekt_config::RootConfig,
   entity_id: &str,
   defaults: Option<
     &flatfekt_schema::DefaultsSpec
@@ -1174,6 +1161,7 @@ fn spawn_shape(
         commands.spawn((sprite, tf));
       insert_physics(
         &mut entity,
+        cfg,
         physics,
         collider
       );
@@ -1198,6 +1186,7 @@ fn spawn_shape(
         ));
       insert_physics(
         &mut entity,
+        cfg,
         physics,
         collider
       );
@@ -1224,6 +1213,7 @@ fn spawn_shape(
         ));
       insert_physics(
         &mut entity,
+        cfg,
         physics,
         collider
       );
@@ -1238,6 +1228,7 @@ fn spawn_shape(
 
 pub(crate) fn insert_physics(
   entity: &mut EntityCommands,
+  _cfg: &flatfekt_config::RootConfig,
   physics: Option<
     &flatfekt_schema::PhysicsSpec
   >,
@@ -1284,6 +1275,71 @@ pub(crate) fn insert_physics(
         );
       }
       | _ => {}
+    }
+  }
+
+  #[cfg(feature = "physics_rapier2d")]
+  if _cfg.simulation_backend()
+    == "rapier2d"
+  {
+    use bevy_rapier2d::prelude as r;
+
+    if let Some(p) = physics {
+      let rb = if p.body_type == "fixed"
+      {
+        r::RigidBody::Fixed
+      } else {
+        r::RigidBody::Dynamic
+      };
+      entity.insert(rb);
+
+      if let Some(mass) = p.mass {
+        if mass.is_finite()
+          && mass > 0.0
+        {
+          entity.insert(r::AdditionalMassProperties::Mass(
+            mass,
+          ));
+        }
+      }
+    }
+
+    if let Some(c) = collider {
+      match c.kind.as_str() {
+        | "circle" => {
+          let radius =
+            c.radius.unwrap_or(1.0);
+          entity.insert(
+            r::Collider::ball(radius)
+          );
+        }
+        | "rect" => {
+          let size = c
+            .size
+            .map(Vec2::from)
+            .unwrap_or(Vec2::ONE);
+          entity.insert(
+            r::Collider::cuboid(
+              size.x * 0.5,
+              size.y * 0.5
+            )
+          );
+        }
+        | _ => {}
+      }
+    }
+
+    if let Some(p) = physics {
+      entity.insert(
+        r::Restitution::coefficient(
+          p.restitution.unwrap_or(0.5)
+        )
+      );
+      entity.insert(
+        r::Friction::coefficient(
+          p.friction.unwrap_or(0.5)
+        )
+      );
     }
   }
 }

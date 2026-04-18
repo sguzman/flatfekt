@@ -988,6 +988,7 @@ fn sync_timeline_time_to_sim_time(
 #[instrument(level = "info", skip_all)]
 pub fn instantiate_scene_headless_for_bake(
   mut commands: Commands,
+  cfg: Res<ConfigRes>,
   scene: Res<SceneRes>,
   mut spawned: ResMut<SpawnedEntities>,
   mut entity_map: ResMut<EntityMap>
@@ -1061,6 +1062,7 @@ pub fn instantiate_scene_headless_for_bake(
     // Physics + collider.
     crate::insert_physics(
       &mut e,
+      &cfg.0,
       ent.physics.as_ref(),
       ent.collider.as_ref()
     );
@@ -1186,6 +1188,7 @@ fn bake_apply_patch_to_world_system(
   mut events: MessageReader<
     crate::ApplyPatch
   >,
+  cfg: Res<ConfigRes>,
   mut scene_res: ResMut<SceneRes>,
   mut entity_map: ResMut<EntityMap>,
   mut commands: Commands,
@@ -1310,6 +1313,7 @@ fn bake_apply_patch_to_world_system(
         }
         crate::insert_physics(
           &mut e,
+          &cfg.0,
           entity.physics.as_ref(),
           entity.collider.as_ref()
         );
@@ -1565,16 +1569,25 @@ pub fn replay_baked_system(
     &mut Transform,
     Option<&mut Text2d>,
     Option<&mut Sprite>
-  )>
+  )>,
+  mut last_applied_t: Local<
+    Option<f32>
+  >
 ) {
   let Some(baked) = baked else {
     return;
   };
-  if !clock.enabled || !clock.playing {
+  if !clock.enabled {
     return;
   }
 
   let t = clock.t_secs;
+  if let Some(prev) = *last_applied_t {
+    if (prev - t).abs() < 0.000001 {
+      return;
+    }
+  }
+  *last_applied_t = Some(t);
 
   for (id, ent_bake) in
     baked.entities.iter()

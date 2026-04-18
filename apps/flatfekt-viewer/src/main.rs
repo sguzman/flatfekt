@@ -11,6 +11,7 @@ use bevy_egui::{
 use clap::Parser;
 use flatfekt_config::RootConfig;
 use flatfekt_runtime::{
+  ConfigRes,
   LoadError,
   TimelineClock,
   build_app,
@@ -139,6 +140,7 @@ fn main() -> anyhow::Result<()> {
 fn egui_control_panel(
   mut egui: EguiContexts,
   mut clock: ResMut<TimelineClock>,
+  cfg: Res<ConfigRes>,
   time: Res<Time>,
   mut commands: Commands,
   scene: Res<
@@ -156,7 +158,10 @@ fn egui_control_panel(
     Option<&Transform>,
     Option<&Sprite>,
     Option<&Text2d>
-  )>
+  )>,
+  mut wheel_seek_step: Local<
+    Option<f32>
+  >
 ) {
   let Ok(ctx) = egui.ctx_mut() else {
     return;
@@ -204,13 +209,44 @@ fn egui_control_panel(
   )
   .resizable(true)
   .show(&*ctx, |ui| {
+    let wheel_seek_cfg = &cfg.0;
+    let seek_min =
+      wheel_seek_cfg.ui_timeline_wheel_seek_secs_min();
+    let seek_max =
+      wheel_seek_cfg.ui_timeline_wheel_seek_secs_max();
+    let ctrl_scale =
+      wheel_seek_cfg.ui_timeline_wheel_seek_ctrl_scale();
+    let default_step =
+      wheel_seek_cfg.ui_timeline_wheel_seek_secs();
+    let step = wheel_seek_step
+      .get_or_insert(default_step);
+
     ui.horizontal(|ui| {
+      if ui.button("|<").clicked() {
+        tracing::info!(
+          "UI Action: Seek Start"
+        );
+        clock.t_secs = 0.0;
+        commands.trigger(
+          flatfekt_runtime::SeekTimeline {
+            t_secs:   0.0,
+            playing: clock.playing
+          }
+        );
+      }
       if ui.button("<<").clicked() {
         tracing::info!(
           "UI Action: Rewind"
         );
-        clock.t_secs =
+        let t =
           (clock.t_secs - 1.0).max(0.0);
+        clock.t_secs = t;
+        commands.trigger(
+          flatfekt_runtime::SeekTimeline {
+            t_secs:   t,
+            playing: clock.playing
+          }
+        );
       }
       if ui
         .button(
@@ -228,18 +264,53 @@ fn egui_control_panel(
           !clock.playing
         );
         clock.playing = !clock.playing;
+        commands.trigger(
+          flatfekt_runtime::SeekTimeline {
+            t_secs:   clock.t_secs,
+            playing: clock.playing
+          }
+        );
       }
       if ui.button("Step").clicked() {
         tracing::info!(
           "UI Action: Step"
         );
         clock.step_once = true;
+        clock.playing = false;
+        commands.trigger(
+          flatfekt_runtime::SeekTimeline {
+            t_secs:   clock.t_secs,
+            playing: false
+          }
+        );
       }
       if ui.button(">>").clicked() {
         tracing::info!(
           "UI Action: Fast Forward"
         );
-        clock.t_secs += 1.0;
+        let t = clock.t_secs + 1.0;
+        clock.t_secs =
+          clock.duration_secs.map(|d| t.min(d)).unwrap_or(t);
+        commands.trigger(
+          flatfekt_runtime::SeekTimeline {
+            t_secs:   clock.t_secs,
+            playing: clock.playing
+          }
+        );
+      }
+      if ui.button(">|").clicked() {
+        if let Some(d) = clock.duration_secs {
+          tracing::info!(
+            "UI Action: Seek End"
+          );
+          clock.t_secs = d;
+          commands.trigger(
+            flatfekt_runtime::SeekTimeline {
+              t_secs:   d,
+              playing: clock.playing
+            }
+          );
+        }
       }
       if ui.button("Reset").clicked() {
         tracing::info!(
@@ -248,6 +319,12 @@ fn egui_control_panel(
         clock.t_secs = 0.0;
         clock.accumulator_secs = 0.0;
         clock.playing = false;
+        commands.trigger(
+          flatfekt_runtime::SeekTimeline {
+            t_secs:   0.0,
+            playing: false
+          }
+        );
       }
       if ui.button("Screenshot").clicked() {
         tracing::info!(
@@ -259,24 +336,54 @@ fn egui_control_panel(
       }
     });
 
-    let dur = clock
-      .duration_secs
-      .unwrap_or(100.0);
+    let dur = clock.duration_secs.unwrap_or_else(|| {
+      clock.t_secs.max(1.0)
+    });
     let mut scrub = clock.t_secs;
-    let changed = ui
-      .add(
-        bevy_egui::egui::Slider::new(
-          &mut scrub,
-          0.0..=dur
-        )
-        .text("Scrubber")
+    let resp = ui.add(
+      bevy_egui::egui::Slider::new(
+        &mut scrub,
+        0.0..=dur
       )
-      .changed();
-    if changed {
+      .text("Scrubber"),
+    );
+
+    // Wheel seeking while hovered.
+    if resp.hovered() && dur.is_finite() {
+      let scroll_y =
+        ui.input(|i| i.raw_scroll_delta.y);
+      if scroll_y.abs() >= 0.01 {
+        let ctrl =
+          ui.input(|i| i.modifiers.ctrl);
+        let sign = scroll_y.signum();
+        if ctrl {
+          let scaled = if sign > 0.0 {
+            *step * ctrl_scale
+          } else {
+            *step / ctrl_scale
+          };
+          *step =
+            scaled.clamp(seek_min, seek_max);
+        } else {
+          let new_t =
+            (clock.t_secs + (*step * sign)).clamp(0.0, dur);
+          clock.t_secs = new_t;
+          commands.trigger(
+            flatfekt_runtime::SeekTimeline {
+              t_secs:   new_t,
+              playing: clock.playing
+            }
+          );
+        }
+      }
+    }
+
+    if resp.changed() {
+      clock.t_secs = scrub;
       commands.trigger(
         flatfekt_runtime::SeekTimeline {
           t_secs:   scrub,
-          playing: false
+          playing: clock.playing
         }
       );
     }
@@ -495,6 +602,7 @@ fn load_config_or_fail_fast(
         features:   None,
         runtime:    None,
         export:     None,
+        ui:         None,
         simulation: None
       })
     }
