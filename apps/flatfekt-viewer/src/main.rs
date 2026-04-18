@@ -4,11 +4,15 @@ use std::sync::OnceLock;
 use bevy::prelude::*;
 use bevy_egui::{
   EguiContexts,
-  EguiPlugin
+  EguiPlugin,
+  EguiPrimaryContextPass,
+  EguiStartupSet,
+  PrimaryEguiContext
 };
 use clap::Parser;
 use flatfekt_config::RootConfig;
 use flatfekt_runtime::{
+  FlatfektSet,
   LoadError,
   TimelineClock,
   build_app,
@@ -99,8 +103,14 @@ fn main() -> anyhow::Result<()> {
     app
       .add_plugins(EguiPlugin::default())
       .add_systems(
-        Update,
-        egui_control_panel
+        Startup,
+        ensure_primary_egui_context
+          .after(FlatfektSet::Instantiate)
+          .before(EguiStartupSet::InitContexts),
+      )
+      .add_systems(
+        EguiPrimaryContextPass,
+        egui_control_panel,
       );
   }
 
@@ -348,6 +358,29 @@ fn egui_control_panel(
       );
     });
   });
+}
+
+fn ensure_primary_egui_context(
+  mut commands: Commands,
+  q: Query<
+    Entity,
+    (
+      With<Camera2d>,
+      Without<PrimaryEguiContext>
+    )
+  >
+) {
+  if let Some(entity) = q.iter().next()
+  {
+    commands
+      .entity(entity)
+      .insert(PrimaryEguiContext);
+    tracing::info!(
+      ?entity,
+      "tagged primary camera with \
+       PrimaryEguiContext"
+    );
+  }
 }
 
 fn init_tracing(
