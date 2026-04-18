@@ -72,10 +72,9 @@ fn main() -> anyhow::Result<()> {
   let scene_path = cli
     .scene
     .or_else(|| {
-      cfg
-        .app
-        .as_ref()
-        .and_then(|a| a.scene_path.clone())
+      cfg.app.as_ref().and_then(|a| {
+        a.scene_path.clone()
+      })
     })
     .unwrap_or_else(|| {
       PathBuf::from("scenes/demo.toml")

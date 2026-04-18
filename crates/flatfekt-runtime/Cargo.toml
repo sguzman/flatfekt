@@ -21,3 +21,4 @@ flatfekt-assets = { path = "../flatfekt-assets", features = ["bevy"] }
 toml.workspace = true
 notify = "8.2.0"
 crossbeam-channel = "0.5.15"
+serde_json = "1.0"

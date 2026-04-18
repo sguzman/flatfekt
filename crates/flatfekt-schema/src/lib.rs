@@ -145,6 +145,7 @@ pub struct Scene {
   pub export: Option<ExportSpec>,
   pub generators:
     Option<Vec<GeneratorSpec>>,
+  pub baked: Option<std::path::PathBuf>,
   pub entities:       Vec<EntitySpec>
 }
 

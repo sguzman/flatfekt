@@ -92,13 +92,16 @@ pub fn init_simulation(
   clock.t_secs = 0.0;
   clock.accumulator_secs = 0.0;
   clock.steps_total = 0;
-  clock.time_scale = cfg.simulation_time_scale();
+  clock.time_scale =
+    cfg.simulation_time_scale();
   seed.0 = cfg.simulation_seed();
 
   // 1. Base values from global config
-  region.gravity = Vec2::new(0.0, -9.81);
+  region.gravity =
+    Vec2::new(0.0, -9.81);
   region.bounds = None;
-  region.time_scale = cfg.simulation_time_scale();
+  region.time_scale =
+    cfg.simulation_time_scale();
 
   // 2. Overrides from scene spec
   if let Some(sim_spec) =
@@ -112,12 +115,15 @@ pub fn init_simulation(
         b[0], b[1], b[2], b[3]
       ));
     }
-    if let Some(ts) = sim_spec.time_scale {
+    if let Some(ts) =
+      sim_spec.time_scale
+    {
       region.time_scale = ts;
     }
   }
 
-  // Sync clock time_scale with region (per-scene override wins)
+  // Sync clock time_scale with region
+  // (per-scene override wins)
   clock.time_scale = region.time_scale;
 
   tracing::info!(
@@ -148,7 +154,8 @@ pub fn simulation_driver(
     * clock.time_scale;
 
   if !cfg.0.simulation_deterministic() {
-    // Non-deterministic: one step with scaled delta
+    // Non-deterministic: one step with
+    // scaled delta
     clock.t_secs += delta;
     clock.steps_total += 1;
     commands.write_message(SimTick {
@@ -157,16 +164,19 @@ pub fn simulation_driver(
     return;
   }
 
-  // Deterministic: accumulate scaled delta and run fixed steps
+  // Deterministic: accumulate scaled
+  // delta and run fixed steps
   if delta.is_finite() && delta > 0.0 {
     clock.accumulator_secs += delta;
   }
 
   let mut steps: u32 = 0;
-  while clock.accumulator_secs >= clock.dt_secs
+  while clock.accumulator_secs
+    >= clock.dt_secs
     && steps < clock.max_catchup_steps
   {
-    clock.accumulator_secs -= clock.dt_secs;
+    clock.accumulator_secs -=
+      clock.dt_secs;
     clock.t_secs += clock.dt_secs;
     clock.steps_total += 1;
     steps += 1;
@@ -432,7 +442,9 @@ pub fn draw_physics_debug_system(
     .scene
     .playback
     .as_ref()
-    .and_then(|p| p.enable_introspection)
+    .and_then(|p| {
+      p.enable_introspection
+    })
     .unwrap_or(false);
 
   if !introspection {
@@ -441,11 +453,14 @@ pub fn draw_physics_debug_system(
 
   // Draw simulation bounds
   if settings.draw_bounds {
-    if let Some(bounds) = region.bounds {
+    if let Some(bounds) = region.bounds
+    {
       gizmos.rect_2d(
         bounds.center(),
         bounds.size(),
-        Color::srgba(0.0, 1.0, 0.0, 0.3)
+        Color::srgba(
+          0.0, 1.0, 0.0, 0.3
+        )
       );
     }
   }
@@ -509,8 +524,10 @@ pub fn draw_wireframe_system(
       let matrix = tf.to_matrix();
       let mut draw_edge =
         |i1: u32, i2: u32| {
-          let p1 = positions[i1 as usize];
-          let p2 = positions[i2 as usize];
+          let p1 =
+            positions[i1 as usize];
+          let p2 =
+            positions[i2 as usize];
           let v1 = matrix
             .transform_point3(
               Vec3::from(p1)
@@ -531,7 +548,9 @@ pub fn draw_wireframe_system(
         };
 
       match indices {
-        | bevy_mesh::Indices::U16(idx) => {
+        | bevy_mesh::Indices::U16(
+          idx
+        ) => {
           for chunk in idx.chunks(3) {
             if chunk.len() == 3 {
               draw_edge(
@@ -549,12 +568,20 @@ pub fn draw_wireframe_system(
             }
           }
         }
-        | bevy_mesh::Indices::U32(idx) => {
+        | bevy_mesh::Indices::U32(
+          idx
+        ) => {
           for chunk in idx.chunks(3) {
             if chunk.len() == 3 {
-              draw_edge(chunk[0], chunk[1]);
-              draw_edge(chunk[1], chunk[2]);
-              draw_edge(chunk[2], chunk[0]);
+              draw_edge(
+                chunk[0], chunk[1]
+              );
+              draw_edge(
+                chunk[1], chunk[2]
+              );
+              draw_edge(
+                chunk[2], chunk[0]
+              );
             }
           }
         }
@@ -570,49 +597,97 @@ pub fn entity_collision_system(
       Entity,
       &mut PhysicsBody,
       &mut Transform,
-      &Collider,
+      &Collider
     )>,
-    Query<(Entity, &Transform, &Collider)>,
-  )>,
+    Query<(
+      Entity,
+      &Transform,
+      &Collider
+    )>
+  )>
 ) {
   for _tick in ticks.read() {
     let mut collisions = Vec::new();
 
-    // 1. Collect all potential colliders
-    let static_colliders: Vec<(Entity, Vec2, Collider)> =
-      set.p1().iter().map(|(e, tf, col)| (e, tf.translation.xy(), col.clone())).collect();
+    // 1. Collect all potential
+    //    colliders
+    let static_colliders: Vec<(
+      Entity,
+      Vec2,
+      Collider
+    )> = set
+      .p1()
+      .iter()
+      .map(|(e, tf, col)| {
+        (
+          e,
+          tf.translation.xy(),
+          col.clone()
+        )
+      })
+      .collect();
 
     // 2. Detect collisions
     {
       let mut query = set.p0();
-      for (entity_a, body_a, tf_a, col_a) in query.iter_mut() {
+      for (
+        entity_a,
+        body_a,
+        tf_a,
+        col_a
+      ) in query.iter_mut()
+      {
         if body_a.fixed {
           continue;
         }
 
-        let pos_a = tf_a.translation.xy();
+        let pos_a =
+          tf_a.translation.xy();
 
-        for (entity_b, pos_b, col_b) in &static_colliders {
+        for (entity_b, pos_b, col_b) in
+          &static_colliders
+        {
           if entity_a == *entity_b {
             continue;
           }
 
           match (col_a, col_b) {
-            | (Collider::Circle { radius: r_a }, Collider::Rect { size: s_b }) => {
+            | (
+              Collider::Circle {
+                radius: r_a
+              },
+              Collider::Rect {
+                size: s_b
+              }
+            ) => {
               let half_b = *s_b * 0.5;
               let closest = Vec2::new(
-                pos_a.x.clamp(pos_b.x - half_b.x, pos_b.x + half_b.x),
-                pos_a.y.clamp(pos_b.y - half_b.y, pos_b.y + half_b.y),
+                pos_a.x.clamp(
+                  pos_b.x - half_b.x,
+                  pos_b.x + half_b.x
+                ),
+                pos_a.y.clamp(
+                  pos_b.y - half_b.y,
+                  pos_b.y + half_b.y
+                )
               );
 
-              let dist = pos_a.distance(closest);
+              let dist =
+                pos_a.distance(closest);
               if dist < *r_a {
-                let normal = if dist > 0.0 {
-                  (pos_a - closest) / dist
-                } else {
-                  Vec2::Y
-                };
-                collisions.push((entity_a, closest + normal * (*r_a), normal));
+                let normal =
+                  if dist > 0.0 {
+                    (pos_a - closest)
+                      / dist
+                  } else {
+                    Vec2::Y
+                  };
+                collisions.push((
+                  entity_a,
+                  closest
+                    + normal * (*r_a),
+                  normal
+                ));
               }
             }
             | _ => {}
@@ -621,19 +696,28 @@ pub fn entity_collision_system(
       }
     }
 
-  // 2. Resolve collisions
+    // 2. Resolve collisions
     let mut query = set.p0();
-    for (entity, new_pos, normal) in collisions {
-      if let Ok((_, mut body, mut tf, _)) =
-        query.get_mut(entity)
+    for (entity, new_pos, normal) in
+      collisions
+    {
+      if let Ok((
+        _,
+        mut body,
+        mut tf,
+        _
+      )) = query.get_mut(entity)
       {
-        tf.translation =
-          new_pos.extend(tf.translation.z);
+        tf.translation = new_pos
+          .extend(tf.translation.z);
 
-        // Reflect velocity across normal
-        let dot = body.velocity.dot(normal);
+        // Reflect velocity across
+        // normal
+        let dot =
+          body.velocity.dot(normal);
         if dot < 0.0 {
-          body.velocity = (body.velocity
+          body.velocity = (body
+            .velocity
             - 2.0 * dot * normal)
             * body.restitution;
         }

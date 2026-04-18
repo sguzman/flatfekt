@@ -81,7 +81,24 @@ enum Commands {
   New { path: PathBuf },
   /// Generate a demo scene (e.g., text,
   /// timeline)
-  Demo { name: String, path: PathBuf }
+  Demo { name: String, path: PathBuf },
+  /// Bake a simulation to a JSON file
+  Bake {
+    path:     PathBuf,
+    output:   PathBuf,
+    #[arg(
+      short,
+      long,
+      default_value = "10.0"
+    )]
+    duration: f32,
+    #[arg(
+      short,
+      long,
+      default_value = "60.0"
+    )]
+    fps:      f32
+  }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -261,6 +278,27 @@ y = 0.0
         "Created demo '{}' at {:?}",
         name, path
       );
+    }
+    | Commands::Bake {
+      path,
+      output,
+      duration,
+      fps
+    } => {
+      let config_path = cli
+        .config
+        .unwrap_or_else(|| {
+          PathBuf::from("flatfekt.toml")
+        });
+      let cfg =
+        load_config(&config_path)
+          .unwrap_or_default();
+      let scene_file =
+        load_scene(&path)?;
+      flatfekt_runtime::run_bake(
+        cfg, path, scene_file, output,
+        duration, fps
+      )?;
     }
   }
 

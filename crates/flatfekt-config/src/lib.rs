@@ -156,7 +156,7 @@ pub struct PlatformConfig {
   Debug, Clone, Deserialize, Default,
 )]
 pub struct RenderConfig {
-  pub backend: Option<String>,
+  pub backend:    Option<String>,
   pub target_fps: Option<u32>,
   pub effects:
     Option<RenderEffectsConfig>
@@ -765,7 +765,9 @@ impl RootConfig {
       .unwrap_or(0)
   }
 
-  pub fn simulation_time_scale(&self) -> f32 {
+  pub fn simulation_time_scale(
+    &self
+  ) -> f32 {
     self
       .simulation
       .as_ref()
@@ -773,7 +775,9 @@ impl RootConfig {
       .unwrap_or(1.0)
   }
 
-  pub fn render_target_fps(&self) -> u32 {
+  pub fn render_target_fps(
+    &self
+  ) -> u32 {
     self
       .render
       .as_ref()

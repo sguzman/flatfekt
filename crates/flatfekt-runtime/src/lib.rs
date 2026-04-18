@@ -6,6 +6,7 @@ use std::path::{
   PathBuf
 };
 
+use anyhow::Result;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy_camera::ScalingMode;
@@ -94,7 +95,9 @@ pub enum RuntimeError {
 #[derive(Resource, Clone)]
 pub struct ConfigRes(pub RootConfig);
 
-#[derive(Resource, Default, Debug, Clone)]
+#[derive(
+  Resource, Default, Debug, Clone,
+)]
 pub struct DebugSettings {
   pub wireframe:   bool,
   pub draw_bounds: bool
@@ -193,6 +196,7 @@ pub struct AssetsCacheRes(
 
 pub mod agents;
 pub mod animation;
+pub mod bake;
 pub mod export;
 pub mod headless_timeline;
 pub mod interaction;
@@ -240,6 +244,10 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_systems(
         Startup,
+        bake::init_baked_simulation
+      )
+      .add_systems(
+        Startup,
         instantiate_scene.in_set(FlatfektSet::Instantiate)
       )
       .add_systems(
@@ -255,6 +263,12 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_systems(
         Update,
         animation::process_timeline_events
+          .in_set(FlatfektSet::SimTick)
+          .after(timeline_driver)
+      )
+      .add_systems(
+        Update,
+        bake::replay_baked_system
           .in_set(FlatfektSet::SimTick)
           .after(timeline_driver)
       )
@@ -2032,4 +2046,73 @@ pub fn snapshot_scene_system(
       }
     }
   }
+}
+
+pub fn run_bake(
+  cfg: flatfekt_config::RootConfig,
+  scene_path: std::path::PathBuf,
+  scene_file: flatfekt_schema::SceneFile,
+  output_path: std::path::PathBuf,
+  duration: f32,
+  _fps: f32
+) -> anyhow::Result<()> {
+  use bevy::app::ScheduleRunnerPlugin;
+
+  let mut app = App::new();
+  app.add_plugins(MinimalPlugins.set(
+    ScheduleRunnerPlugin::run_loop(
+      std::time::Duration::from_secs_f32(
+        1.0 / 60.0
+      )
+    )
+  ));
+
+  app.insert_resource(ConfigRes(cfg));
+  app.insert_resource(ScenePathRes(
+    scene_path
+  ));
+  app.insert_resource(SceneRes(
+    scene_file
+  ));
+  app.insert_resource(AssetsRootRes(
+    std::path::PathBuf::from("assets")
+  ));
+
+  app
+    .add_plugins(FlatfektRuntimePlugin);
+
+  app.init_resource::<bake::BakeRecorder>();
+  app.add_systems(
+    Update,
+    bake::bake_recording_system.after(
+      simulation::simulation_driver
+    )
+  );
+
+  app.add_systems(
+    Update,
+    move |clock: Res<
+      simulation::SimulationClock
+    >,
+          recorder: Res<
+      bake::BakeRecorder
+    >,
+          mut exit: MessageWriter<
+      bevy::app::AppExit
+    >| {
+      if clock.t_secs >= duration {
+        bake::save_bake(
+          &recorder,
+          &output_path
+        )
+        .unwrap();
+        exit.write(
+          bevy::app::AppExit::Success
+        );
+      }
+    }
+  );
+
+  app.run();
+  Ok(())
 }

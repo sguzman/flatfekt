@@ -28,6 +28,7 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 ### M2 — replay
 - [x] Add input/timeline event recording format (timestamped)
 - [x] Add replay runner that reproduces a run deterministically (when configured)
+- [x] Add simulation baking (bake command, trajectory export, playback interpolation)
 
 ### M3 — packaged scenes
 - [x] Define package format (scene + assets manifest)
