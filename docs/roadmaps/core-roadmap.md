@@ -67,6 +67,9 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 - [x] Add `--x11` flag to GUI binaries to override unix backend
 - [x] Fail fast with actionable errors when the selected unix backend has no display environment (X11: `DISPLAY`; Wayland: `WAYLAND_DISPLAY`/`WAYLAND_SOCKET`)
 
+## Logging integration
+- [x] Avoid double-initializing the global logger (disable Bevy `LogPlugin` when using `tracing_subscriber`)
+
 ## Open design questions
 - [x] Decide whether the scene format is one TOML file or a root + includes (directory packs)
 - [x] Decide whether Bevy schedule is authoritative, or engine defines its own schedule sets

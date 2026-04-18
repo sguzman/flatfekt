@@ -4,8 +4,7 @@ use std::sync::OnceLock;
 use bevy::prelude::*;
 use bevy_egui::{
   EguiContexts,
-  EguiPlugin,
-  EguiPrimaryContextPass
+  EguiPlugin
 };
 use clap::Parser;
 use flatfekt_config::RootConfig;
@@ -100,7 +99,7 @@ fn main() -> anyhow::Result<()> {
     app
       .add_plugins(EguiPlugin::default())
       .add_systems(
-        EguiPrimaryContextPass,
+        Update,
         egui_control_panel
       );
   }

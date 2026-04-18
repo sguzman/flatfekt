@@ -419,8 +419,21 @@ pub fn build_app(
     .insert_resource(AssetsRootRes(
       root
     ))
-    .add_plugins(DefaultPlugins)
     .add_plugins(FlatfektRuntimePlugin);
+
+  // Apps in this workspace initialize a
+  // `tracing_subscriber` early. Bevy's
+  // `LogPlugin` also attempts to
+  // install a global logger/subscriber,
+  // which causes noisy errors (and can
+  // be fatal depending on build
+  // settings). We intentionally disable
+  // it and rely on our tracing setup.
+  let mut plugins =
+    DefaultPlugins.build();
+  plugins = plugins
+    .disable::<bevy::log::LogPlugin>();
+  app.add_plugins(plugins);
 
   if app
     .world()
