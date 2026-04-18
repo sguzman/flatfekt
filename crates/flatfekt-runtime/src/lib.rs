@@ -250,6 +250,7 @@ impl Plugin for FlatfektRuntimePlugin {
         Startup,
         instantiate_scene.in_set(FlatfektSet::Instantiate)
       )
+      .init_resource::<animation::TimelinePlan>()
       .add_systems(
         Update,
         animation::seek_timeline_system
@@ -290,7 +291,7 @@ impl Plugin for FlatfektRuntimePlugin {
           simulation::gravity_system,
           simulation::bounds_collision_system,
           simulation::entity_collision_system,
-          simulation::draw_physics_debug_system
+          // simulation::draw_physics_debug_system
         )
           .in_set(FlatfektSet::SimTick)
           .after(simulation::simulation_driver)
@@ -2066,6 +2067,16 @@ pub fn run_bake(
       )
     )
   ));
+  app.add_plugins((
+    bevy::transform::TransformPlugin,
+    bevy::asset::AssetPlugin::default(),
+    bevy::input::InputPlugin,
+    bevy::mesh::MeshPlugin,
+    bevy::sprite::SpritePlugin,
+    bevy::text::TextPlugin,
+  ));
+
+  app.init_asset::<ColorMaterial>();
 
   app.insert_resource(ConfigRes(cfg));
   app.insert_resource(ScenePathRes(
@@ -2078,8 +2089,7 @@ pub fn run_bake(
     std::path::PathBuf::from("assets")
   ));
 
-  app
-    .add_plugins(FlatfektRuntimePlugin);
+  app.add_plugins(FlatfektRuntimePlugin);
 
   app.init_resource::<bake::BakeRecorder>();
   app.add_systems(
