@@ -1,0 +1,30 @@
+[scene]
+schema_version = "0.1"
+
+[scene.playback]
+enable_introspection = true
+duration_secs = 10.0
+
+[scene.camera]
+x = 0.0
+y = 0.0
+zoom = 1.0
+
+[scene.simulation]
+gravity = [0.0, -20.0]
+bounds = [-100.0, -100.0, 100.0, 100.0]
+time_scale = 2.0
+
+[[scene.entities]]
+id = "ball"
+transform = { x = 0.0, y = 80.0 }
+shape = { kind = "circle", radius = 10.0, color = { r = 0.8, g = 0.2, b = 0.2 } }
+physics = { body_type = "dynamic", mass = 1.0, restitution = 0.8, friction = 0.5 }
+collider = { kind = "circle", radius = 10.0 }
+
+[[scene.entities]]
+id = "floor"
+transform = { x = 0.0, y = -50.0 }
+shape = { kind = "rect", width = 160.0, height = 20.0, color = { r = 0.2, g = 0.8, b = 0.2 } }
+physics = { body_type = "fixed" }
+collider = { kind = "rect", size = [160.0, 20.0] }

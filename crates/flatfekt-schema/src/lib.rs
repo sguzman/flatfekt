@@ -254,8 +254,9 @@ pub struct ActionBinding {
 )]
 #[serde(deny_unknown_fields)]
 pub struct SimRegionSpec {
-  pub gravity: [f32; 2],
-  pub bounds:  Option<[f32; 4]>
+  pub gravity:    Option<[f32; 2]>,
+  pub bounds:     Option<[f32; 4]>,
+  pub time_scale: Option<f32>
 }
 
 #[derive(
@@ -288,7 +289,8 @@ pub struct PlaybackSpec {
   pub allow_scrub: Option<bool>,
   pub allow_rewind: Option<bool>,
   pub enable_introspection:
-    Option<bool>
+    Option<bool>,
+  pub target_fps:           Option<u32>
 }
 
 #[derive(

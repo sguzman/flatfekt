@@ -141,7 +141,8 @@ pub struct SimulationConfig {
   pub fixed_dt_secs:     Option<f32>,
   pub max_catchup_steps: Option<u32>,
   pub seed:              Option<u64>,
-  pub playing:           Option<bool>
+  pub playing:           Option<bool>,
+  pub time_scale:        Option<f32>
 }
 
 #[derive(
@@ -156,6 +157,7 @@ pub struct PlatformConfig {
 )]
 pub struct RenderConfig {
   pub backend: Option<String>,
+  pub target_fps: Option<u32>,
   pub effects:
     Option<RenderEffectsConfig>
 }
@@ -761,6 +763,22 @@ impl RootConfig {
       .as_ref()
       .and_then(|s| s.seed)
       .unwrap_or(0)
+  }
+
+  pub fn simulation_time_scale(&self) -> f32 {
+    self
+      .simulation
+      .as_ref()
+      .and_then(|s| s.time_scale)
+      .unwrap_or(1.0)
+  }
+
+  pub fn render_target_fps(&self) -> u32 {
+    self
+      .render
+      .as_ref()
+      .and_then(|r| r.target_fps)
+      .unwrap_or(60)
   }
 }
 

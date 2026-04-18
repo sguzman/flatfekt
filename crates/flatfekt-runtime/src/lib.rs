@@ -96,7 +96,8 @@ pub struct ConfigRes(pub RootConfig);
 
 #[derive(Resource, Default, Debug, Clone)]
 pub struct DebugSettings {
-  pub wireframe: bool
+  pub wireframe:   bool,
+  pub draw_bounds: bool
 }
 
 #[derive(Resource, Clone)]
@@ -274,6 +275,7 @@ impl Plugin for FlatfektRuntimePlugin {
         (
           simulation::gravity_system,
           simulation::bounds_collision_system,
+          simulation::entity_collision_system,
           simulation::draw_physics_debug_system
         )
           .in_set(FlatfektSet::SimTick)

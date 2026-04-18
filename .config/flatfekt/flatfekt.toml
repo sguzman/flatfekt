@@ -26,6 +26,7 @@ unix_backend = "wayland"
 [render]
 # This project requires Vulkan and fails fast if no Vulkan adapter is available.
 backend = "vulkan"
+target_fps = 60
 
 [render.effects]
 # Enable global post-processing effects and compositing.
@@ -97,3 +98,4 @@ fixed_dt_secs = 0.016666667
 max_catchup_steps = 4
 seed = 0
 playing = true
+time_scale = 1.0

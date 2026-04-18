@@ -333,6 +333,10 @@ fn egui_control_panel(
       &mut debug_settings.wireframe,
       "Wireframe Mode"
     );
+    ui.checkbox(
+      &mut debug_settings.draw_bounds,
+      "Draw World Bounds"
+    );
     ui.collapsing(
       "Performance",
       |ui| {

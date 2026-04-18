@@ -39,7 +39,8 @@ pub struct SimulationClock {
   pub dt_secs:           f32,
   pub max_catchup_steps: u32,
   pub accumulator_secs:  f32,
-  pub steps_total:       u64
+  pub steps_total:       u64,
+  pub time_scale:        f32
 }
 
 impl Default for SimulationClock {
@@ -51,7 +52,8 @@ impl Default for SimulationClock {
       dt_secs:           1.0 / 60.0,
       max_catchup_steps: 4,
       accumulator_secs:  0.0,
-      steps_total:       0
+      steps_total:       0,
+      time_scale:        1.0
     }
   }
 }
@@ -90,25 +92,33 @@ pub fn init_simulation(
   clock.t_secs = 0.0;
   clock.accumulator_secs = 0.0;
   clock.steps_total = 0;
+  clock.time_scale = cfg.simulation_time_scale();
   seed.0 = cfg.simulation_seed();
 
+  // 1. Base values from global config
+  region.gravity = Vec2::new(0.0, -9.81);
+  region.bounds = None;
+  region.time_scale = cfg.simulation_time_scale();
+
+  // 2. Overrides from scene spec
   if let Some(sim_spec) =
     &scene.0.scene.simulation
   {
-    region.gravity =
-      Vec2::from(sim_spec.gravity);
+    if let Some(g) = sim_spec.gravity {
+      region.gravity = Vec2::from(g);
+    }
     if let Some(b) = sim_spec.bounds {
       region.bounds = Some(Rect::new(
         b[0], b[1], b[2], b[3]
       ));
-    } else {
-      region.bounds = None;
     }
-  } else {
-    region.gravity =
-      Vec2::new(0.0, -9.81);
-    region.bounds = None;
+    if let Some(ts) = sim_spec.time_scale {
+      region.time_scale = ts;
+    }
   }
+
+  // Sync clock time_scale with region (per-scene override wins)
+  clock.time_scale = region.time_scale;
 
   tracing::info!(
     ?clock,
@@ -132,28 +142,32 @@ pub fn simulation_driver(
     return;
   }
 
-  let dt =
-    if cfg.0.simulation_deterministic()
-    {
-      clock.dt_secs
-    } else {
-      time
-        .map(|t| t.delta_secs())
-        .unwrap_or(clock.dt_secs)
-    };
+  let delta = time
+    .map(|t| t.delta_secs())
+    .unwrap_or(clock.dt_secs)
+    * clock.time_scale;
 
-  if dt.is_finite() && dt > 0.0 {
-    clock.accumulator_secs += dt;
+  if !cfg.0.simulation_deterministic() {
+    // Non-deterministic: one step with scaled delta
+    clock.t_secs += delta;
+    clock.steps_total += 1;
+    commands.write_message(SimTick {
+      dt_secs: delta
+    });
+    return;
+  }
+
+  // Deterministic: accumulate scaled delta and run fixed steps
+  if delta.is_finite() && delta > 0.0 {
+    clock.accumulator_secs += delta;
   }
 
   let mut steps: u32 = 0;
-  while clock.accumulator_secs
-    >= clock.dt_secs
+  while clock.accumulator_secs >= clock.dt_secs
     && steps < clock.max_catchup_steps
   {
+    clock.accumulator_secs -= clock.dt_secs;
     clock.t_secs += clock.dt_secs;
-    clock.accumulator_secs -=
-      clock.dt_secs;
     clock.steps_total += 1;
     steps += 1;
     commands.write_message(SimTick {
@@ -196,8 +210,9 @@ pub enum Collider {
   Resource, Debug, Clone, Default,
 )]
 pub struct SimRegionRes {
-  pub gravity: Vec2,
-  pub bounds:  Option<Rect>
+  pub gravity:    Vec2,
+  pub bounds:     Option<Rect>,
+  pub time_scale: f32
 }
 
 #[derive(
@@ -408,30 +423,31 @@ pub fn sim_control_system(
 pub fn draw_physics_debug_system(
   scene: Res<crate::SceneRes>,
   region: Res<SimRegionRes>,
+  settings: Res<crate::DebugSettings>,
   query: Query<(&Transform, &Collider)>,
   mut gizmos: Gizmos
 ) {
-  let enabled = scene
+  let introspection = scene
     .0
     .scene
     .playback
     .as_ref()
-    .and_then(|p| {
-      p.enable_introspection
-    })
+    .and_then(|p| p.enable_introspection)
     .unwrap_or(false);
 
-  if !enabled {
+  if !introspection {
     return;
   }
 
   // Draw simulation bounds
-  if let Some(bounds) = region.bounds {
-    gizmos.rect_2d(
-      bounds.center(),
-      bounds.size(),
-      Color::srgba(0.0, 1.0, 0.0, 0.3)
-    );
+  if settings.draw_bounds {
+    if let Some(bounds) = region.bounds {
+      gizmos.rect_2d(
+        bounds.center(),
+        bounds.size(),
+        Color::srgba(0.0, 1.0, 0.0, 0.3)
+      );
+    }
   }
 
   // Draw entity colliders
@@ -541,6 +557,91 @@ pub fn draw_wireframe_system(
               draw_edge(chunk[2], chunk[0]);
             }
           }
+        }
+      }
+    }
+  }
+}
+
+pub fn entity_collision_system(
+  mut ticks: MessageReader<SimTick>,
+  mut query: Query<(Entity, &mut PhysicsBody, &mut Transform, &Collider)>,
+  all_colliders: Query<(Entity, &Transform, &Collider)>
+) {
+  for _tick in ticks.read() {
+    let mut collisions = Vec::new();
+
+    // 1. Detect collisions
+    for (entity_a, body_a, tf_a, col_a) in query.iter() {
+      if body_a.fixed {
+        continue;
+      }
+
+      for (entity_b, tf_b, col_b) in
+        all_colliders.iter()
+      {
+        if entity_a == entity_b {
+          continue;
+        }
+
+        match (col_a, col_b) {
+          | (
+            Collider::Circle {
+              radius: r_a
+            },
+            Collider::Rect {
+              size: s_b
+            },
+          ) => {
+            let pos_a =
+              tf_a.translation.xy();
+            let pos_b =
+              tf_b.translation.xy();
+            let half_b = *s_b * 0.5;
+
+            // Closest point on Rect to
+            // Circle center
+            let closest = Vec2::new(
+              pos_a.x.clamp(
+                pos_b.x - half_b.x,
+                pos_b.x + half_b.x
+              ),
+              pos_a.y.clamp(
+                pos_b.y - half_b.y,
+                pos_b.y + half_b.y
+              )
+            );
+
+            let dist =
+              pos_a.distance(closest);
+            if dist < *r_a {
+              let normal = if dist > 0.0 {
+                (pos_a - closest) / dist
+              } else {
+                Vec2::Y // Default upward if perfectly overlapping
+              };
+
+              collisions.push((
+                entity_a,
+                closest + normal * (*r_a),
+                normal
+              ));
+            }
+          }
+          | _ => {} // TODO: implement other pairs
+        }
+      }
+    }
+
+    // 2. Resolve collisions
+    for (entity, new_pos, normal) in collisions {
+      if let Ok((_, mut body, mut tf, _)) = query.get_mut(entity) {
+        tf.translation = new_pos.extend(tf.translation.z);
+        
+        // Reflect velocity across normal
+        let dot = body.velocity.dot(normal);
+        if dot < 0.0 {
+          body.velocity = (body.velocity - 2.0 * dot * normal) * body.restitution;
         }
       }
     }
