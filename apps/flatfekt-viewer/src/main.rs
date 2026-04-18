@@ -494,6 +494,7 @@ fn load_config_or_fail_fast(
         assets:     None,
         features:   None,
         runtime:    None,
+        export:     None,
         simulation: None
       })
     }

@@ -9,6 +9,7 @@ use clap::{
 use flatfekt_config::RootConfig;
 use flatfekt_runtime::{
   LoadError,
+  bake,
   load_config,
   load_scene,
   run_bevy
@@ -58,6 +59,35 @@ enum Command {
   /// Run a scene (overrides any
   /// configured `app.scene_path`).
   Run { scene: PathBuf },
+  /// Bake a simulation to a first-class
+  /// artifact directory containing
+  /// `bake.json`,
+  /// `scene_playback.toml`,
+  /// and packaged assets.
+  Bake {
+    scene:          PathBuf,
+    /// Override `export.bake.
+    /// output_root`.
+    #[arg(long)]
+    output_root:    Option<PathBuf>,
+    /// Override FPS for deterministic
+    /// bake stepping.
+    #[arg(long)]
+    fps:            Option<f32>,
+    /// Override duration (seconds) for
+    /// baking.
+    #[arg(long)]
+    duration_secs:  Option<f32>,
+    /// Do not copy external assets
+    /// into the bake directory.
+    #[arg(long)]
+    no_copy_assets: bool
+  },
+  /// Run baked playback from a bake
+  /// directory (or directly from
+  /// `bake.json`), with simulation
+  /// disabled.
+  PlayBake { input: PathBuf },
   /// Run a scene's timeline headlessly
   /// (no window) and log dispatched
   /// events + patch application.
@@ -116,6 +146,117 @@ fn main() -> anyhow::Result<()> {
       run_bevy(cfg, scene, scene_file)
         .context("runtime failed")
     }
+    | Command::Bake {
+      scene,
+      output_root,
+      fps,
+      duration_secs,
+      no_copy_assets
+    } => {
+      let scene_bytes =
+        std::fs::read(&scene)
+          .with_context(|| {
+            format!(
+              "failed to read scene \
+               bytes at {}",
+              scene.display()
+            )
+          })?;
+      let scene_file =
+        load_scene(&scene)?;
+
+      let req = bake::BakeRequest {
+        output_root: output_root
+          .unwrap_or_else(|| cfg.export_bake_output_root()),
+        fps: fps.unwrap_or_else(|| cfg.export_bake_default_fps()),
+        duration_secs: duration_secs.unwrap_or_else(|| {
+          cfg.export_bake_default_duration_secs()
+        }),
+        copy_assets: !no_copy_assets
+          && cfg.export_bake_copy_assets(),
+      };
+
+      let out =
+        bake::bake_scene_to_dir(
+          cfg,
+          scene.clone(),
+          scene_bytes,
+          scene_file,
+          req
+        )?;
+
+      println!("{}", out.dir.display());
+      tracing::info!(
+        dir = %out.dir.display(),
+        bake_json = %out.bake_json_path.display(),
+        playback_scene = %out.scene_playback_path.display(),
+        "bake complete"
+      );
+      Ok(())
+    }
+    | Command::PlayBake {
+      input
+    } => {
+      configure_unix_backend_env(
+        &cfg, cli.x11
+      )?;
+      require_vulkan_adapter()?;
+
+      let (bake_dir, bake_json_path) =
+        if input.is_dir() {
+          (
+            input.clone(),
+            input.join(
+              bake::BAKE_JSON_FILE
+            )
+          )
+        } else {
+          let parent = input
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| {
+              PathBuf::from(".")
+            });
+          (parent, input.clone())
+        };
+
+      if !bake_json_path.exists() {
+        anyhow::bail!(
+          "bake json not found at {}",
+          bake_json_path.display()
+        );
+      }
+
+      let scene_path = bake_dir.join(
+        bake::BAKE_SCENE_PLAYBACK_TOML
+      );
+      if !scene_path.exists() {
+        anyhow::bail!(
+          "scene_playback.toml not \
+           found at {}",
+          scene_path.display()
+        );
+      }
+
+      // Ensure packaged assets resolve
+      // relative to the bake directory.
+      let mut cfg = cfg;
+      cfg
+        .app
+        .get_or_insert_with(
+          Default::default
+        )
+        .assets_dir = Some(bake_dir);
+
+      let scene_file =
+        load_scene(&scene_path)?;
+      run_bevy(
+        cfg, scene_path, scene_file
+      )
+      .context(
+        "baked playback runtime failed"
+      )
+    }
     | Command::TraceTimeline {
       scene,
       max_steps,
@@ -161,6 +302,7 @@ fn load_config_or_fail_fast(
         assets:     None,
         features:   None,
         runtime:    None,
+        export:     None,
         simulation: None
       };
       cfg.validate().context(

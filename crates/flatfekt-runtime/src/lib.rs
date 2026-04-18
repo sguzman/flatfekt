@@ -494,7 +494,7 @@ pub fn run_bevy(
 }
 
 #[instrument(level = "info", skip_all)]
-fn init_timeline_clock(
+pub(crate) fn init_timeline_clock(
   cfg: Res<ConfigRes>,
   scene: Res<SceneRes>,
   mut clock: ResMut<TimelineClock>
@@ -502,6 +502,8 @@ fn init_timeline_clock(
   let cfg = &cfg.0;
   let pb =
     scene.0.scene.playback.as_ref();
+  let scene_has_bake =
+    scene.0.scene.baked.is_some();
   let scene_has_timeline = scene
     .0
     .scene
@@ -510,7 +512,10 @@ fn init_timeline_clock(
     .is_some_and(|t| !t.is_empty());
   clock.enabled = cfg
     .runtime_timeline_enabled_opt()
-    .unwrap_or(scene_has_timeline);
+    .unwrap_or(scene_has_timeline)
+    || (scene_has_bake
+      && cfg
+        .runtime_playback_baked_requires_timeline_clock());
   clock.dt_secs = cfg
     .runtime_timeline_fixed_dt_secs();
   clock.max_catchup_steps = cfg
@@ -1283,7 +1288,7 @@ pub(crate) fn insert_physics(
   }
 }
 
-fn color_from_rgba(
+pub(crate) fn color_from_rgba(
   c: ColorRgba
 ) -> Color {
   Color::srgba(

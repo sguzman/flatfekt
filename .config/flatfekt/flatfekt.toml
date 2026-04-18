@@ -83,6 +83,13 @@ debounce_ms = 250
 # If true, reload errors are logged and the app keeps running. If false, the app exits.
 warn_and_continue = true
 
+[runtime.playback]
+# When a scene has a baked simulation attached, prefer baked playback over running simulation.
+prefer_baked_over_simulation = true
+
+# Baked playback currently uses the timeline clock to drive interpolation time.
+baked_requires_timeline_clock = true
+
 [assets.hot_reload]
 # When runtime hot reload is enabled, also reload assets through Bevy's AssetServer
 # when watched asset files change (images, fonts, wgsl).
@@ -98,4 +105,19 @@ fixed_dt_secs = 0.016666667
 max_catchup_steps = 4
 seed = 0
 playing = true
+
+[export.bake]
+# Root for baked artifacts. Each bake creates a unique run directory under:
+# `.cache/flatfekt/scene/<scene>/bakes/<scene_xxhash>/run-<timestamp>-<pid>/`
+output_root = ".cache/flatfekt/scene"
+
+# Defaults used when CLI does not specify.
+default_fps = 60.0
+default_duration_secs = 10.0
+
+# Copy external assets referenced by the scene into the bake directory.
+copy_assets = true
+
+# Bake bucket hashing algorithm. This is currently fixed to xxhash64 in code.
+hash_algorithm = "xxhash64"
 time_scale = 1.0

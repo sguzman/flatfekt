@@ -96,6 +96,17 @@ pub fn init_simulation(
     cfg.simulation_time_scale();
   seed.0 = cfg.simulation_seed();
 
+  if scene.0.scene.baked.is_some()
+    && cfg
+      .runtime_playback_prefer_baked_over_simulation()
+  {
+    clock.enabled = false;
+    clock.playing = false;
+    tracing::info!(
+      "simulation disabled (baked playback mode)"
+    );
+  }
+
   // 1. Base values from global config
   region.gravity =
     Vec2::new(0.0, -9.81);

@@ -125,11 +125,23 @@ pub struct RuntimeHotReloadConfig {
 #[derive(
   Debug, Clone, Deserialize, Default,
 )]
+pub struct RuntimePlaybackConfig {
+  pub prefer_baked_over_simulation:
+    Option<bool>,
+  pub baked_requires_timeline_clock:
+    Option<bool>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
 pub struct RuntimeConfig {
   pub timeline:
     Option<RuntimeTimelineConfig>,
   pub hot_reload:
-    Option<RuntimeHotReloadConfig>
+    Option<RuntimeHotReloadConfig>,
+  pub playback:
+    Option<RuntimePlaybackConfig>
 }
 
 #[derive(
@@ -143,6 +155,25 @@ pub struct SimulationConfig {
   pub seed:              Option<u64>,
   pub playing:           Option<bool>,
   pub time_scale:        Option<f32>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
+pub struct ExportBakeConfig {
+  pub output_root: Option<PathBuf>,
+  pub default_fps: Option<f32>,
+  pub default_duration_secs:
+    Option<f32>,
+  pub copy_assets: Option<bool>,
+  pub hash_algorithm: Option<String>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
+pub struct ExportConfig {
+  pub bake: Option<ExportBakeConfig>
 }
 
 #[derive(
@@ -210,6 +241,7 @@ pub struct RootConfig {
   pub assets:     Option<AssetsConfig>,
   pub features: Option<FeaturesConfig>,
   pub runtime:    Option<RuntimeConfig>,
+  pub export:     Option<ExportConfig>,
   pub simulation:
     Option<SimulationConfig>
 }
@@ -903,6 +935,86 @@ impl RootConfig {
         r.hot_reload.as_ref()
       })
       .and_then(|h| h.warn_and_continue)
+      .unwrap_or(true)
+  }
+}
+
+impl RootConfig {
+  pub fn export_bake_output_root(
+    &self
+  ) -> PathBuf {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.bake.as_ref())
+      .and_then(|b| {
+        b.output_root.clone()
+      })
+      .unwrap_or_else(|| {
+        PathBuf::from(
+          ".cache/flatfekt/scene"
+        )
+      })
+  }
+
+  pub fn export_bake_default_fps(
+    &self
+  ) -> f32 {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.bake.as_ref())
+      .and_then(|b| b.default_fps)
+      .unwrap_or(60.0)
+  }
+
+  pub fn export_bake_default_duration_secs(
+    &self
+  ) -> f32 {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.bake.as_ref())
+      .and_then(|b| {
+        b.default_duration_secs
+      })
+      .unwrap_or(10.0)
+  }
+
+  pub fn export_bake_copy_assets(
+    &self
+  ) -> bool {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.bake.as_ref())
+      .and_then(|b| b.copy_assets)
+      .unwrap_or(true)
+  }
+
+  pub fn runtime_playback_prefer_baked_over_simulation(
+    &self
+  ) -> bool {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| r.playback.as_ref())
+      .and_then(|p| {
+        p.prefer_baked_over_simulation
+      })
+      .unwrap_or(true)
+  }
+
+  pub fn runtime_playback_baked_requires_timeline_clock(
+    &self
+  ) -> bool {
+    self
+      .runtime
+      .as_ref()
+      .and_then(|r| r.playback.as_ref())
+      .and_then(|p| {
+        p.baked_requires_timeline_clock
+      })
       .unwrap_or(true)
   }
 }
