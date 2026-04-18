@@ -409,7 +409,7 @@ fn dispatch_event(
               "timeline apply_patch \
                parsed"
             );
-            commands.trigger(
+            commands.write_message(
               crate::ApplyPatch(patch)
             );
           }
@@ -430,7 +430,7 @@ fn dispatch_event(
           .get("path")
           .and_then(|v| v.as_str())
         {
-          commands.trigger(
+          commands.write_message(
             crate::TransitionScene(
               std::path::PathBuf::from(
                 path

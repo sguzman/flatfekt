@@ -1,0 +1,1 @@
+- [x] Runtime: Use `Commands::write_message` for message emission (fix timeline patches / resets / transitions delivery)

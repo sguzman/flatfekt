@@ -54,3 +54,4 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
 ### Error policy
 - [x] Convert loader failures into structured errors with context (file path, field path)
 - [x] Add “warn and continue” policy for non-fatal reload errors (configurable)
+- [x] Use `Commands::write_message` for message emission (fix timeline patches / resets / transitions delivery)

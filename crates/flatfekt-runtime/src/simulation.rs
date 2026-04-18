@@ -127,7 +127,7 @@ pub fn simulation_driver(
       clock.dt_secs;
     clock.steps_total += 1;
     steps += 1;
-    commands.trigger(SimTick {
+    commands.write_message(SimTick {
       dt_secs: clock.dt_secs
     });
   }

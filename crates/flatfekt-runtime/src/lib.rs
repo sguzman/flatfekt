@@ -1475,7 +1475,8 @@ pub fn hot_reload_system(
       | Ok(new_scene) => {
         scene_res.0 = new_scene;
         reload_status.last_error = None;
-        commands.trigger(ResetScene);
+        commands
+          .write_message(ResetScene);
         tracing::info!(
           "Hot-reload successful"
         );
@@ -1598,7 +1599,7 @@ pub fn apply_patch_system(
   }
 
   if changed {
-    commands.trigger(ResetScene);
+    commands.write_message(ResetScene);
   }
 }
 
@@ -1649,7 +1650,7 @@ pub fn scene_transition_system(
   }
 
   if do_reset {
-    commands.trigger(ResetScene);
+    commands.write_message(ResetScene);
   }
 }
 
