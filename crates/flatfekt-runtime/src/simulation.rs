@@ -458,3 +458,91 @@ pub fn draw_physics_debug_system(
     }
   }
 }
+
+pub fn draw_wireframe_system(
+  settings: Res<crate::DebugSettings>,
+  query: Query<(&Mesh2d, &Transform)>,
+  meshes: Res<Assets<Mesh>>,
+  mut gizmos: Gizmos
+) {
+  if !settings.wireframe {
+    return;
+  }
+
+  for (mesh2d, tf) in query.iter() {
+    if let Some(mesh) =
+      meshes.get(&mesh2d.0)
+    {
+      let (indices, positions) = match (
+        mesh.indices(),
+        mesh.attribute(
+          Mesh::ATTRIBUTE_POSITION
+        ),
+      ) {
+        | (
+          Some(indices),
+          Some(
+            bevy_mesh::VertexAttributeValues::Float32x3(
+              pos,
+            ),
+          ),
+        ) => (indices, pos),
+        | _ => continue,
+      };
+
+      let matrix = tf.to_matrix();
+      let mut draw_edge =
+        |i1: u32, i2: u32| {
+          let p1 = positions[i1 as usize];
+          let p2 = positions[i2 as usize];
+          let v1 = matrix
+            .transform_point3(
+              Vec3::from(p1)
+            )
+            .xy();
+          let v2 = matrix
+            .transform_point3(
+              Vec3::from(p2)
+            )
+            .xy();
+          gizmos.line_2d(
+            v1,
+            v2,
+            Color::srgba(
+              1.0, 1.0, 1.0, 0.5
+            )
+          );
+        };
+
+      match indices {
+        | bevy_mesh::Indices::U16(idx) => {
+          for chunk in idx.chunks(3) {
+            if chunk.len() == 3 {
+              draw_edge(
+                chunk[0] as u32,
+                chunk[1] as u32
+              );
+              draw_edge(
+                chunk[1] as u32,
+                chunk[2] as u32
+              );
+              draw_edge(
+                chunk[2] as u32,
+                chunk[0] as u32
+              );
+            }
+          }
+        }
+        | bevy_mesh::Indices::U32(idx) => {
+          for chunk in idx.chunks(3) {
+            if chunk.len() == 3 {
+              draw_edge(chunk[0], chunk[1]);
+              draw_edge(chunk[1], chunk[2]);
+              draw_edge(chunk[2], chunk[0]);
+            }
+          }
+        }
+      }
+    }
+  }
+}

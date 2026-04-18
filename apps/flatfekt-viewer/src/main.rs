@@ -139,6 +139,9 @@ fn egui_control_panel(
   entity_map: Res<
     flatfekt_runtime::EntityMap
   >,
+  mut debug_settings: ResMut<
+    flatfekt_runtime::DebugSettings
+  >,
   query: Query<(
     Entity,
     Option<&Name>,
@@ -317,6 +320,10 @@ fn egui_control_panel(
   )
   .resizable(true)
   .show(&*ctx, |ui| {
+    ui.checkbox(
+      &mut debug_settings.wireframe,
+      "Wireframe Mode"
+    );
     ui.collapsing(
       "Performance",
       |ui| {

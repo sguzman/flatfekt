@@ -94,6 +94,11 @@ pub enum RuntimeError {
 #[derive(Resource, Clone)]
 pub struct ConfigRes(pub RootConfig);
 
+#[derive(Resource, Default, Debug, Clone)]
+pub struct DebugSettings {
+  pub wireframe: bool
+}
+
 #[derive(Resource, Clone)]
 pub struct SceneRes(pub SceneFile);
 
@@ -277,10 +282,12 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_observer(simulation::sim_control_system)
       .insert_resource(interaction::ActionMap::default())
       .insert_resource(export::ExportSettings::default())
+      .init_resource::<DebugSettings>()
       .insert_resource(export::ReplayBuffer::default())
       .add_systems(
         Update,
         (
+          simulation::draw_wireframe_system,
           interaction::input_system,
           interaction::picking_system,
           agents::agent_tick_system,
