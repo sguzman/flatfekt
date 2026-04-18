@@ -404,3 +404,57 @@ pub fn sim_control_system(
     }
   }
 }
+
+pub fn draw_physics_debug_system(
+  scene: Res<crate::SceneRes>,
+  region: Res<SimRegionRes>,
+  query: Query<(&Transform, &Collider)>,
+  mut gizmos: Gizmos
+) {
+  let enabled = scene
+    .0
+    .scene
+    .playback
+    .as_ref()
+    .and_then(|p| {
+      p.enable_introspection
+    })
+    .unwrap_or(false);
+
+  if !enabled {
+    return;
+  }
+
+  // Draw simulation bounds
+  if let Some(bounds) = region.bounds {
+    gizmos.rect_2d(
+      bounds.center(),
+      bounds.size(),
+      Color::srgba(0.0, 1.0, 0.0, 0.3)
+    );
+  }
+
+  // Draw entity colliders
+  for (tf, collider) in query.iter() {
+    match collider {
+      | Collider::Circle {
+        radius
+      } => {
+        gizmos.circle_2d(
+          tf.translation.xy(),
+          *radius,
+          Color::WHITE
+        );
+      }
+      | Collider::Rect {
+        size
+      } => {
+        gizmos.rect_2d(
+          tf.translation.xy(),
+          *size,
+          Color::WHITE
+        );
+      }
+    }
+  }
+}

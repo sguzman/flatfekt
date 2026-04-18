@@ -1,15 +1,17 @@
 use bevy::prelude::*;
 use flatfekt_config::RootConfig;
-use flatfekt_runtime::ConfigRes;
 use flatfekt_runtime::simulation::{
+  SimRegionRes,
   SimTick,
   SimulationClock,
   SimulationSeed,
   init_simulation,
-  simulation_driver,
-  SimRegionRes
+  simulation_driver
 };
-use flatfekt_runtime::SceneRes;
+use flatfekt_runtime::{
+  ConfigRes,
+  SceneRes
+};
 use flatfekt_schema::SceneFile;
 
 #[test]
@@ -35,19 +37,22 @@ fn simulation_steps_are_deterministic_with_fixed_dt()
   .expect("config parses");
   cfg.validate().expect("config valid");
 
-  let scene_file: SceneFile = toml::from_str(
-    r#"
+  let scene_file: SceneFile =
+    toml::from_str(
+      r#"
       [scene]
       schema_version = "0.1"
       entities = []
     "#
-  )
-  .expect("scene parses");
+    )
+    .expect("scene parses");
 
   let mut app = App::new();
   app
     .insert_resource(ConfigRes(cfg))
-    .insert_resource(SceneRes(scene_file))
+    .insert_resource(SceneRes(
+      scene_file
+    ))
     .add_message::<SimTick>()
     .init_resource::<SimulationClock>()
     .init_resource::<SimulationSeed>()

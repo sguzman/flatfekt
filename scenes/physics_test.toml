@@ -1,6 +1,9 @@
 [scene]
 schema_version = "0.1"
 
+[scene.playback]
+enable_introspection = true
+
 [scene.camera]
 x = 0.0
 y = 0.0

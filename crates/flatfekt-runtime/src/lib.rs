@@ -268,7 +268,8 @@ impl Plugin for FlatfektRuntimePlugin {
         Update,
         (
           simulation::gravity_system,
-          simulation::bounds_collision_system
+          simulation::bounds_collision_system,
+          simulation::draw_physics_debug_system
         )
           .in_set(FlatfektSet::SimTick)
           .after(simulation::simulation_driver)

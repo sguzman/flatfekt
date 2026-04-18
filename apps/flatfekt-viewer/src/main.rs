@@ -6,13 +6,11 @@ use bevy_egui::{
   EguiContexts,
   EguiPlugin,
   EguiPrimaryContextPass,
-  EguiStartupSet,
   PrimaryEguiContext
 };
 use clap::Parser;
 use flatfekt_config::RootConfig;
 use flatfekt_runtime::{
-  FlatfektSet,
   LoadError,
   TimelineClock,
   build_app,
@@ -103,10 +101,9 @@ fn main() -> anyhow::Result<()> {
     app
       .add_plugins(EguiPlugin::default())
       .add_systems(
-        Startup,
+        Update,
         ensure_primary_egui_context
-          .after(FlatfektSet::Instantiate)
-          .before(EguiStartupSet::InitContexts),
+          .run_if(no_primary_egui_context),
       )
       .add_systems(
         EguiPrimaryContextPass,
@@ -686,4 +683,10 @@ fn run_log_file_name()
     pid,
     now.subsec_nanos()
   ))
+}
+
+fn no_primary_egui_context(
+  q: Query<&PrimaryEguiContext>
+) -> bool {
+  q.is_empty()
 }
