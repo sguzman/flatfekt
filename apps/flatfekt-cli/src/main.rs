@@ -13,7 +13,7 @@ use flatfekt_runtime::{
 use flatfekt_schema::SceneFile;
 
 #[derive(Parser)]
-#[command(name = "flatfekt")]
+#[command(name = "flatfekt-cli")]
 #[command(about = "Flatfekt 2D scene runner and simulation environment CLI tool", long_about = None)]
 struct Cli {
   #[command(subcommand)]

@@ -68,6 +68,12 @@ cargo clippy
 cargo test
 ```
 
+Run the CLI tool:
+
+```bash
+cargo run
+```
+
 Run the viewer app:
 
 ```bash

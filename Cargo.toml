@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["apps/*", "crates/*"]
+default-members = ["apps/flatfekt"]
 
 [workspace.package]
 edition = "2024"
