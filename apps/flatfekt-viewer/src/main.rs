@@ -514,7 +514,48 @@ fn enforce_platform_and_render_defaults(
     );
   }
 
+  preflight_display_env(ub)?;
   require_vulkan_adapter()
+}
+
+fn preflight_display_env(
+  ub: &str
+) -> anyhow::Result<()> {
+  match ub {
+    | "x11" => {
+      if std::env::var_os("DISPLAY")
+        .is_none()
+      {
+        anyhow::bail!(
+          "x11 selected but DISPLAY \
+           is not set; run under an \
+           X11 session (or Xwayland) \
+           or set DISPLAY"
+        );
+      }
+    }
+    | "wayland" => {
+      let has_wayland =
+        std::env::var_os(
+          "WAYLAND_DISPLAY"
+        )
+        .is_some()
+          || std::env::var_os(
+            "WAYLAND_SOCKET"
+          )
+          .is_some();
+      if !has_wayland {
+        anyhow::bail!(
+          "wayland selected but \
+           neither WAYLAND_DISPLAY \
+           nor WAYLAND_SOCKET is set; \
+           run under a Wayland session"
+        );
+      }
+    }
+    | _ => {}
+  }
+  Ok(())
 }
 
 fn require_vulkan_adapter()

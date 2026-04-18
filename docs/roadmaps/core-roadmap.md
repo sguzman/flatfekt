@@ -65,6 +65,7 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 ## Platform defaults
 - [x] Allow X11 as an opt-in unix backend (`--x11` flag; Wayland remains default)
 - [x] Add `--x11` flag to GUI binaries to override unix backend
+- [x] Fail fast with actionable errors when the selected unix backend has no display environment (X11: `DISPLAY`; Wayland: `WAYLAND_DISPLAY`/`WAYLAND_SOCKET`)
 
 ## Open design questions
 - [x] Decide whether the scene format is one TOML file or a root + includes (directory packs)

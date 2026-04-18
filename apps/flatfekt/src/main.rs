@@ -94,7 +94,7 @@ fn main() -> anyhow::Result<()> {
     } => {
       configure_unix_backend_env(
         &cfg, cli.x11
-      );
+      )?;
       require_vulkan_adapter()?;
       let scene_file =
         load_scene(&scene)?;
@@ -265,7 +265,7 @@ fn require_vulkan_adapter()
 fn configure_unix_backend_env(
   cfg: &RootConfig,
   x11: bool
-) {
+) -> anyhow::Result<()> {
   // Rust 2024: mutating process
   // environment is `unsafe` because it
   // can violate invariants when other
@@ -305,4 +305,47 @@ fn configure_unix_backend_env(
     backend,
     "unix backend selected"
   );
+
+  preflight_display_env(backend)?;
+  Ok(())
+}
+
+fn preflight_display_env(
+  ub: &str
+) -> anyhow::Result<()> {
+  match ub {
+    | "x11" => {
+      if std::env::var_os("DISPLAY")
+        .is_none()
+      {
+        anyhow::bail!(
+          "x11 selected but DISPLAY \
+           is not set; run under an \
+           X11 session (or Xwayland) \
+           or set DISPLAY"
+        );
+      }
+    }
+    | "wayland" => {
+      let has_wayland =
+        std::env::var_os(
+          "WAYLAND_DISPLAY"
+        )
+        .is_some()
+          || std::env::var_os(
+            "WAYLAND_SOCKET"
+          )
+          .is_some();
+      if !has_wayland {
+        anyhow::bail!(
+          "wayland selected but \
+           neither WAYLAND_DISPLAY \
+           nor WAYLAND_SOCKET is set; \
+           run under a Wayland session"
+        );
+      }
+    }
+    | _ => {}
+  }
+  Ok(())
 }
