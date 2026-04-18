@@ -152,6 +152,9 @@ fn egui_control_panel(
   mut debug_settings: ResMut<
     flatfekt_runtime::DebugSettings
   >,
+  baked: Option<
+    Res<flatfekt_runtime::bake::BakedSimulation>
+  >,
   query: Query<(
     Entity,
     Option<&Name>,
@@ -410,6 +413,23 @@ fn egui_control_panel(
         clock.loop_mode
       ));
     });
+
+    if let Some(baked) = baked {
+      ui.separator();
+      ui.collapsing("Bake Information", |ui| {
+        ui.label(format!("Bake Version: {}", baked.version));
+        ui.label(format!("FPS: {:.1}", baked.playback.fps));
+        ui.label(format!("Total Duration: {:.3}s", baked.playback.duration_secs));
+        
+        // Calculate total frames. 
+        // We use the playback specs to determine the theoretical frame count.
+        let frames = (baked.playback.duration_secs * baked.playback.fps).round() as u64;
+        ui.label(format!("Total Frames: {}", frames));
+        
+        ui.label(format!("Baked Entities: {}", baked.entities.len()));
+        ui.label(format!("Baked Events: {}", baked.events.len()));
+      });
+    }
   });
 
   bevy_egui::egui::Window::new("Entity Inspector").resizable(true).show(&*ctx, |ui| {
