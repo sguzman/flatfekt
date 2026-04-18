@@ -799,11 +799,18 @@ impl RootConfig {
     &self
   ) -> bool {
     self
+      .runtime_timeline_enabled_opt()
+      .unwrap_or(false)
+  }
+
+  pub fn runtime_timeline_enabled_opt(
+    &self
+  ) -> Option<bool> {
+    self
       .runtime
       .as_ref()
       .and_then(|r| r.timeline.as_ref())
       .and_then(|t| t.enabled)
-      .unwrap_or(false)
   }
 
   pub fn runtime_timeline_deterministic(

@@ -43,6 +43,7 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
   - [x] Wire timeline driver to `SimTick` set (advance by fixed dt when enabled)
   - [x] Enforce scene duration/end-of-scene behavior (stop/loop) when duration is present
 - [x] Add deterministic ordering guarantees where required (stable entity spawn order)
+- [x] Auto-enable timeline stepping when a scene defines timeline events (unless `runtime.timeline.enabled` is explicitly set)
 
 ## Grouped tasks
 

@@ -467,8 +467,15 @@ fn init_timeline_clock(
   let cfg = &cfg.0;
   let pb =
     scene.0.scene.playback.as_ref();
-  clock.enabled =
-    cfg.runtime_timeline_enabled();
+  let scene_has_timeline = scene
+    .0
+    .scene
+    .timeline
+    .as_ref()
+    .is_some_and(|t| !t.is_empty());
+  clock.enabled = cfg
+    .runtime_timeline_enabled_opt()
+    .unwrap_or(scene_has_timeline);
   clock.dt_secs = cfg
     .runtime_timeline_fixed_dt_secs();
   clock.max_catchup_steps = cfg

@@ -1,0 +1,1 @@
+- [x] Runtime (M3): Auto-enable timeline stepping when a scene defines timeline events (unless `runtime.timeline.enabled` is explicitly set)
