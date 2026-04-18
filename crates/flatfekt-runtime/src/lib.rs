@@ -188,6 +188,7 @@ pub struct AssetsCacheRes(
 pub mod agents;
 pub mod animation;
 pub mod export;
+pub mod headless_timeline;
 pub mod interaction;
 pub mod render_effects;
 pub mod simulation;

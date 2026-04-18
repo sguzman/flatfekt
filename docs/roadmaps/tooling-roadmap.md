@@ -18,6 +18,7 @@ Provide tools that make the engine usable: CLI, validators, linters, formatters,
 - [x] Add a CLI subcommand: `run <scene.toml>` (overrides config scene path)
 - [x] Add `tracing` output controls via CLI flags (level/filter)
 - [x] Remove workspace `cargo run` ambiguity (single `flatfekt` bin; set a workspace default run target)
+- [x] Add headless timeline runner command for debugging (run timeline/apply patches without a window; log dispatched events)
 
 ### M1 — schema and formatting helpers
 - [x] Add a TOML formatter/linter for scene files (deterministic output)

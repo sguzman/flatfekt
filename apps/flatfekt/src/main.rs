@@ -57,7 +57,22 @@ enum Command {
   Validate { scene: PathBuf },
   /// Run a scene (overrides any
   /// configured `app.scene_path`).
-  Run { scene: PathBuf }
+  Run { scene: PathBuf },
+  /// Run a scene's timeline headlessly
+  /// (no window) and log dispatched
+  /// events + patch application.
+  TraceTimeline {
+    scene:         PathBuf,
+    /// Maximum number of fixed-dt
+    /// steps to run.
+    #[arg(long, default_value_t = 600)]
+    max_steps:     u32,
+    /// Optional maximum time (seconds)
+    /// to run; overrides scene
+    /// duration.
+    #[arg(long)]
+    max_time_secs: Option<f32>
+  }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -100,6 +115,31 @@ fn main() -> anyhow::Result<()> {
         load_scene(&scene)?;
       run_bevy(cfg, scene, scene_file)
         .context("runtime failed")
+    }
+    | Command::TraceTimeline {
+      scene,
+      max_steps,
+      max_time_secs
+    } => {
+      let mut scene_file =
+        load_scene(&scene)?;
+      let opts =
+        flatfekt_runtime::headless_timeline::HeadlessTimelineOptions {
+          max_steps,
+          max_time_secs
+        };
+      let res =
+        flatfekt_runtime::headless_timeline::run_headless_timeline(
+          &cfg,
+          &mut scene_file,
+          &opts
+        )?;
+      tracing::info!(
+        ?res,
+        "headless timeline run \
+         complete"
+      );
+      Ok(())
     }
   }
 }
