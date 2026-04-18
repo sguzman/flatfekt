@@ -468,16 +468,22 @@ impl RootConfig {
       }
     }
 
-    if self.unix_backend() != "wayland"
     {
-      return Err(
-        ConfigError::Validate(format!(
-          "unsupported \
-           platform.unix_backend \
-           {:?}; expected \"wayland\"",
-          self.unix_backend()
-        ))
-      );
+      let ub = self.unix_backend();
+      if ub != "wayland" && ub != "x11"
+      {
+        return Err(
+          ConfigError::Validate(
+            format!(
+              "unsupported \
+               platform.unix_backend \
+               {:?}; expected \
+               \"wayland\" or \"x11\"",
+              ub
+            )
+          )
+        );
+      }
     }
     if self.render_backend() != "vulkan"
     {

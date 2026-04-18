@@ -140,10 +140,12 @@ pub struct Scene {
   pub timeline:
     Option<Vec<TimelineEvent>>,
   pub simulation: Option<SimRegionSpec>,
-  pub interaction: Option<InteractionSpec>,
-  pub export:      Option<ExportSpec>,
-  pub generators:  Option<Vec<GeneratorSpec>>,
-  pub entities:    Vec<EntitySpec>
+  pub interaction:
+    Option<InteractionSpec>,
+  pub export: Option<ExportSpec>,
+  pub generators:
+    Option<Vec<GeneratorSpec>>,
+  pub entities:       Vec<EntitySpec>
 }
 
 #[derive(

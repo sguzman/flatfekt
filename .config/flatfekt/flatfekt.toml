@@ -20,6 +20,7 @@ assets_dir = "assets"
 
 [platform]
 # Default target graphics environment for this project.
+# Supported values: "wayland" (default) or "x11" (opt-in).
 unix_backend = "wayland"
 
 [render]

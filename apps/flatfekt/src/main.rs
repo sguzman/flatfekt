@@ -30,6 +30,12 @@ struct Cli {
   )]
   config: PathBuf,
 
+  /// Use X11 instead of Wayland on
+  /// Unix (Wayland remains the
+  /// default).
+  #[arg(long)]
+  x11: bool,
+
   /// Override `logging.level`
   /// (trace|debug|info|warn|error).
   #[arg(long)]
@@ -86,6 +92,9 @@ fn main() -> anyhow::Result<()> {
     | Command::Run {
       scene
     } => {
+      configure_unix_backend_env(
+        &cfg, cli.x11
+      );
       require_vulkan_adapter()?;
       let scene_file =
         load_scene(&scene)?;
@@ -251,4 +260,49 @@ fn require_vulkan_adapter()
     "Vulkan adapter selected"
   );
   Ok(())
+}
+
+fn configure_unix_backend_env(
+  cfg: &RootConfig,
+  x11: bool
+) {
+  // Rust 2024: mutating process
+  // environment is `unsafe` because it
+  // can violate invariants when other
+  // threads read environment variables
+  // concurrently. We do this at startup
+  // before spinning up any engine
+  // threads.
+  unsafe {
+    std::env::set_var(
+      "WGPU_BACKEND",
+      "vulkan"
+    );
+  }
+
+  let configured = cfg.unix_backend();
+  let backend = if x11 {
+    if configured != "x11" {
+      tracing::warn!(
+        configured,
+        "overriding \
+         platform.unix_backend to x11 \
+         for this run"
+      );
+    }
+    "x11"
+  } else {
+    configured
+  };
+
+  unsafe {
+    std::env::set_var(
+      "WINIT_UNIX_BACKEND",
+      backend
+    );
+  }
+  tracing::info!(
+    backend,
+    "unix backend selected"
+  );
 }

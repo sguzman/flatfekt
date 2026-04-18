@@ -62,6 +62,9 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 - [x] Standardize cache directory layout under `.cache/flatfekt/` (central cache root)
 - [x] Create per-scene cache directories under `.cache/flatfekt/scene/<scene>/` for derived artifacts
 
+## Platform defaults
+- [x] Allow X11 as an opt-in unix backend (`--x11` flag; Wayland remains default)
+
 ## Open design questions
 - [x] Decide whether the scene format is one TOML file or a root + includes (directory packs)
 - [x] Decide whether Bevy schedule is authoritative, or engine defines its own schedule sets

@@ -441,12 +441,12 @@ fn default_config_path() -> PathBuf {
 fn enforce_platform_and_render_defaults(
   cfg: &RootConfig
 ) -> anyhow::Result<()> {
-  if cfg.unix_backend() != "wayland" {
+  let ub = cfg.unix_backend();
+  if ub != "wayland" && ub != "x11" {
     anyhow::bail!(
       "unsupported unix backend {:?}; \
-       this project defaults to \
-       Wayland",
-      cfg.unix_backend()
+       expected \"wayland\" or \"x11\"",
+      ub
     );
   }
   if cfg.render_backend() != "vulkan" {
@@ -468,7 +468,7 @@ fn enforce_platform_and_render_defaults(
   unsafe {
     std::env::set_var(
       "WINIT_UNIX_BACKEND",
-      "wayland"
+      ub
     );
     std::env::set_var(
       "WGPU_BACKEND",
