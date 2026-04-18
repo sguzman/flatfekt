@@ -868,7 +868,7 @@ struct SpawnOp<'a> {
   >
 }
 
-fn transform_from_spec(
+pub(crate) fn transform_from_spec(
   t: Option<Transform2d>
 ) -> Transform {
   let mut tf = Transform::default();
@@ -1231,7 +1231,7 @@ fn spawn_shape(
   }
 }
 
-fn insert_physics(
+pub(crate) fn insert_physics(
   entity: &mut EntityCommands,
   physics: Option<
     &flatfekt_schema::PhysicsSpec
@@ -2055,28 +2055,52 @@ pub fn run_bake(
   scene_file: flatfekt_schema::SceneFile,
   output_path: std::path::PathBuf,
   duration: f32,
-  _fps: f32
+  fps: f32
 ) -> anyhow::Result<()> {
   use bevy::app::ScheduleRunnerPlugin;
+
+  let fps =
+    if fps.is_finite() && fps > 0.0 {
+      fps
+    } else {
+      60.0
+    };
+
+  // Baking is a simulation export. We
+  // intentionally force deterministic
+  // fixed stepping and ensure the
+  // simulation is enabled regardless of
+  // the viewer config.
+  let mut cfg = cfg;
+  {
+    let sim =
+      cfg.simulation.get_or_insert_with(
+        flatfekt_config::SimulationConfig::default,
+      );
+    sim.enabled = Some(true);
+    sim.playing = Some(true);
+    sim.deterministic = Some(true);
+    sim.fixed_dt_secs = Some(1.0 / fps);
+    sim.max_catchup_steps =
+      sim.max_catchup_steps.or(Some(4));
+    sim.time_scale =
+      sim.time_scale.or(Some(1.0));
+  }
+
+  let root = flatfekt_assets::resolve::assets_root(&cfg)
+    .unwrap_or_else(|_| std::path::PathBuf::from("assets"));
 
   let mut app = App::new();
   app.add_plugins(MinimalPlugins.set(
     ScheduleRunnerPlugin::run_loop(
       std::time::Duration::from_secs_f32(
-        1.0 / 60.0
+        1.0 / fps
       )
     )
   ));
-  app.add_plugins((
-    bevy::transform::TransformPlugin,
-    bevy::asset::AssetPlugin::default(),
-    bevy::input::InputPlugin,
-    bevy::mesh::MeshPlugin,
-    bevy::sprite::SpritePlugin,
-    bevy::text::TextPlugin,
-  ));
-
-  app.init_asset::<ColorMaterial>();
+  app.add_plugins(
+    bevy::transform::TransformPlugin
+  );
 
   app.insert_resource(ConfigRes(cfg));
   app.insert_resource(ScenePathRes(
@@ -2086,17 +2110,54 @@ pub fn run_bake(
     scene_file
   ));
   app.insert_resource(AssetsRootRes(
-    std::path::PathBuf::from("assets")
+    root
   ));
 
-  app.add_plugins(FlatfektRuntimePlugin);
+  // Messages used by simulation
+  // stepping.
+  app
+    .add_message::<simulation::SimTick>(
+    );
+
+  // Minimal scene + simulation stack
+  // (avoid window/input systems).
+  app
+    .configure_sets(Startup, FlatfektSet::Instantiate)
+    .configure_sets(Update, FlatfektSet::SimTick)
+    .init_resource::<SpawnedEntities>()
+    .init_resource::<EntityMap>()
+    .init_resource::<simulation::SimulationClock>()
+    .init_resource::<simulation::SimulationSeed>()
+    .init_resource::<simulation::SimRegionRes>()
+    .add_systems(
+      Startup,
+      simulation::init_simulation,
+    )
+    .add_systems(
+      Startup,
+      bake::instantiate_scene_headless_for_bake
+        .in_set(FlatfektSet::Instantiate),
+    )
+    .add_systems(
+      Update,
+      simulation::simulation_driver.in_set(FlatfektSet::SimTick),
+    )
+    .add_systems(
+      Update,
+      (
+        simulation::gravity_system,
+        simulation::bounds_collision_system,
+        simulation::entity_collision_system,
+      )
+        .in_set(FlatfektSet::SimTick)
+        .after(simulation::simulation_driver),
+    );
 
   app.init_resource::<bake::BakeRecorder>();
   app.add_systems(
     Update,
-    bake::bake_recording_system.after(
-      simulation::simulation_driver
-    )
+    bake::bake_recording_system
+      .after(simulation::entity_collision_system)
   );
 
   app.add_systems(

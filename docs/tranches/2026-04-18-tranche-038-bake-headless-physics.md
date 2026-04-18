@@ -1,0 +1,1 @@
+- [x] Export (M2): Fix `bake` to run headless (no window), advance simulation time, and write output for `scenes/physics_test.toml`

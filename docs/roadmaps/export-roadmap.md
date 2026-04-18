@@ -29,6 +29,7 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 - [x] Add input/timeline event recording format (timestamped)
 - [x] Add replay runner that reproduces a run deterministically (when configured)
 - [x] Add simulation baking (bake command, trajectory export, playback interpolation)
+- [x] Fix `bake` to run headless (no window), advance simulation time, and write output for `scenes/physics_test.toml`
 
 ### M3 — packaged scenes
 - [x] Define package format (scene + assets manifest)

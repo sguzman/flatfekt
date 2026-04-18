@@ -131,7 +131,10 @@ fn main() -> anyhow::Result<()> {
       let config_path = cli
         .config
         .unwrap_or_else(|| {
-          PathBuf::from("flatfekt.toml")
+          PathBuf::from(
+            ".config/flatfekt/\
+             flatfekt.toml"
+          )
         });
       let cfg =
         load_config(&config_path)
@@ -288,7 +291,10 @@ y = 0.0
       let config_path = cli
         .config
         .unwrap_or_else(|| {
-          PathBuf::from("flatfekt.toml")
+          PathBuf::from(
+            ".config/flatfekt/\
+             flatfekt.toml"
+          )
         });
       let cfg =
         load_config(&config_path)

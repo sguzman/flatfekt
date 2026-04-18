@@ -8,8 +8,12 @@ use serde::{
 };
 use tracing::instrument;
 
-use crate::EntityMap;
 use crate::simulation::SimulationClock;
+use crate::{
+  EntityMap,
+  SceneRes,
+  SpawnedEntities
+};
 
 #[derive(
   Debug,
@@ -207,6 +211,44 @@ pub fn save_bake(
     )?;
   std::fs::write(path, json)?;
   Ok(())
+}
+
+#[instrument(level = "info", skip_all)]
+pub fn instantiate_scene_headless_for_bake(
+  mut commands: Commands,
+  scene: Res<SceneRes>,
+  mut spawned: ResMut<SpawnedEntities>,
+  mut entity_map: ResMut<EntityMap>
+) {
+  let scene = &scene.0.scene;
+
+  spawned.0.clear();
+  entity_map.0.clear();
+
+  tracing::info!(
+    entities = scene.entities.len(),
+    "instantiating scene for bake \
+     (headless)"
+  );
+
+  for ent in &scene.entities {
+    let tf = crate::transform_from_spec(
+      ent.transform
+    );
+    let mut e = commands.spawn(tf);
+    crate::insert_physics(
+      &mut e,
+      ent.physics.as_ref(),
+      ent.collider.as_ref()
+    );
+    let id = e.id();
+    spawned.0.push(id);
+    entity_map
+      .0
+      .entry(ent.id.clone())
+      .or_default()
+      .push(id);
+  }
 }
 
 #[instrument(level = "info", skip_all)]
