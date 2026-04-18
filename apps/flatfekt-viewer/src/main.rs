@@ -6,6 +6,7 @@ use bevy_egui::{
   EguiContexts,
   EguiPlugin
 };
+use clap::Parser;
 use flatfekt_config::RootConfig;
 use flatfekt_runtime::{
   LoadError,
@@ -21,20 +22,43 @@ use tracing::{
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+#[derive(Parser, Debug)]
+#[command(name = "flatfekt-viewer")]
+#[command(about = "GUI viewer for flatfekt scenes", long_about = None)]
+struct ViewerCli {
+  /// Path to the control-pane config
+  /// TOML.
+  #[arg(long)]
+  config: Option<PathBuf>,
+
+  /// Use X11 instead of Wayland on
+  /// Unix (Wayland remains the
+  /// default).
+  #[arg(long)]
+  x11: bool
+}
+
 fn main() -> anyhow::Result<()> {
-  let config_path =
-    std::env::var_os("FLATFEKT_CONFIG")
+  let cli = ViewerCli::parse();
+
+  let config_path = cli
+    .config
+    .or_else(|| {
+      std::env::var_os(
+        "FLATFEKT_CONFIG"
+      )
       .map(PathBuf::from)
-      .unwrap_or_else(
-        default_config_path
-      );
+    })
+    .unwrap_or_else(
+      default_config_path
+    );
 
   let cfg = load_config_or_fail_fast(
     &config_path
   )?;
   init_tracing(&cfg)?;
   enforce_platform_and_render_defaults(
-    &cfg
+    &cfg, cli.x11
   )?;
   info!(?cfg, "loaded config");
 
@@ -439,9 +463,23 @@ fn default_config_path() -> PathBuf {
 }
 
 fn enforce_platform_and_render_defaults(
-  cfg: &RootConfig
+  cfg: &RootConfig,
+  x11: bool
 ) -> anyhow::Result<()> {
-  let ub = cfg.unix_backend();
+  let configured = cfg.unix_backend();
+  let ub = if x11 {
+    if configured != "x11" {
+      warn!(
+        configured,
+        "overriding \
+         platform.unix_backend to x11 \
+         for this run"
+      );
+    }
+    "x11"
+  } else {
+    configured
+  };
   if ub != "wayland" && ub != "x11" {
     anyhow::bail!(
       "unsupported unix backend {:?}; \

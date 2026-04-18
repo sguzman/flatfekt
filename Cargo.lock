@@ -2886,6 +2886,7 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_egui",
+ "clap",
  "flatfekt-config",
  "flatfekt-runtime",
  "flatfekt-schema",
