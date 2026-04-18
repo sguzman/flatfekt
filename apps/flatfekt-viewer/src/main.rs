@@ -33,6 +33,11 @@ struct ViewerCli {
   #[arg(long)]
   config: Option<PathBuf>,
 
+  /// Path to a specific scene TOML to
+  /// override the config default.
+  #[arg(long)]
+  scene: Option<PathBuf>,
+
   /// Use X11 instead of Wayland on
   /// Unix (Wayland remains the
   /// default).
@@ -64,10 +69,14 @@ fn main() -> anyhow::Result<()> {
   )?;
   info!(?cfg, "loaded config");
 
-  let scene_path = cfg
-    .app
-    .as_ref()
-    .and_then(|a| a.scene_path.clone())
+  let scene_path = cli
+    .scene
+    .or_else(|| {
+      cfg
+        .app
+        .as_ref()
+        .and_then(|a| a.scene_path.clone())
+    })
     .unwrap_or_else(|| {
       PathBuf::from("scenes/demo.toml")
     });
