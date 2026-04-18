@@ -565,83 +565,77 @@ pub fn draw_wireframe_system(
 
 pub fn entity_collision_system(
   mut ticks: MessageReader<SimTick>,
-  mut query: Query<(Entity, &mut PhysicsBody, &mut Transform, &Collider)>,
-  all_colliders: Query<(Entity, &Transform, &Collider)>
+  mut set: ParamSet<(
+    Query<(
+      Entity,
+      &mut PhysicsBody,
+      &mut Transform,
+      &Collider,
+    )>,
+    Query<(Entity, &Transform, &Collider)>,
+  )>,
 ) {
   for _tick in ticks.read() {
     let mut collisions = Vec::new();
 
-    // 1. Detect collisions
-    for (entity_a, body_a, tf_a, col_a) in query.iter() {
-      if body_a.fixed {
-        continue;
-      }
+    // 1. Collect all potential colliders
+    let static_colliders: Vec<(Entity, Vec2, Collider)> =
+      set.p1().iter().map(|(e, tf, col)| (e, tf.translation.xy(), col.clone())).collect();
 
-      for (entity_b, tf_b, col_b) in
-        all_colliders.iter()
-      {
-        if entity_a == entity_b {
+    // 2. Detect collisions
+    {
+      let mut query = set.p0();
+      for (entity_a, body_a, tf_a, col_a) in query.iter_mut() {
+        if body_a.fixed {
           continue;
         }
 
-        match (col_a, col_b) {
-          | (
-            Collider::Circle {
-              radius: r_a
-            },
-            Collider::Rect {
-              size: s_b
-            },
-          ) => {
-            let pos_a =
-              tf_a.translation.xy();
-            let pos_b =
-              tf_b.translation.xy();
-            let half_b = *s_b * 0.5;
+        let pos_a = tf_a.translation.xy();
 
-            // Closest point on Rect to
-            // Circle center
-            let closest = Vec2::new(
-              pos_a.x.clamp(
-                pos_b.x - half_b.x,
-                pos_b.x + half_b.x
-              ),
-              pos_a.y.clamp(
-                pos_b.y - half_b.y,
-                pos_b.y + half_b.y
-              )
-            );
-
-            let dist =
-              pos_a.distance(closest);
-            if dist < *r_a {
-              let normal = if dist > 0.0 {
-                (pos_a - closest) / dist
-              } else {
-                Vec2::Y // Default upward if perfectly overlapping
-              };
-
-              collisions.push((
-                entity_a,
-                closest + normal * (*r_a),
-                normal
-              ));
-            }
+        for (entity_b, pos_b, col_b) in &static_colliders {
+          if entity_a == *entity_b {
+            continue;
           }
-          | _ => {} // TODO: implement other pairs
+
+          match (col_a, col_b) {
+            | (Collider::Circle { radius: r_a }, Collider::Rect { size: s_b }) => {
+              let half_b = *s_b * 0.5;
+              let closest = Vec2::new(
+                pos_a.x.clamp(pos_b.x - half_b.x, pos_b.x + half_b.x),
+                pos_a.y.clamp(pos_b.y - half_b.y, pos_b.y + half_b.y),
+              );
+
+              let dist = pos_a.distance(closest);
+              if dist < *r_a {
+                let normal = if dist > 0.0 {
+                  (pos_a - closest) / dist
+                } else {
+                  Vec2::Y
+                };
+                collisions.push((entity_a, closest + normal * (*r_a), normal));
+              }
+            }
+            | _ => {}
+          }
         }
       }
     }
 
-    // 2. Resolve collisions
+  // 2. Resolve collisions
+    let mut query = set.p0();
     for (entity, new_pos, normal) in collisions {
-      if let Ok((_, mut body, mut tf, _)) = query.get_mut(entity) {
-        tf.translation = new_pos.extend(tf.translation.z);
-        
+      if let Ok((_, mut body, mut tf, _)) =
+        query.get_mut(entity)
+      {
+        tf.translation =
+          new_pos.extend(tf.translation.z);
+
         // Reflect velocity across normal
         let dot = body.velocity.dot(normal);
         if dot < 0.0 {
-          body.velocity = (body.velocity - 2.0 * dot * normal) * body.restitution;
+          body.velocity = (body.velocity
+            - 2.0 * dot * normal)
+            * body.restitution;
         }
       }
     }
