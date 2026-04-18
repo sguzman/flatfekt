@@ -2830,6 +2830,9 @@ name = "flatfekt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_egui",
  "clap",
  "flatfekt-config",
  "flatfekt-runtime",

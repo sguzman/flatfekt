@@ -10,13 +10,15 @@ use flatfekt_config::RootConfig;
 use flatfekt_runtime::{
   LoadError,
   bake,
+  build_app,
   load_config,
-  load_scene,
-  run_bevy
+  load_scene
 };
 use tracing::warn;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
+mod ui;
 
 #[derive(Parser, Debug)]
 #[command(name = "flatfekt")]
@@ -143,8 +145,29 @@ fn main() -> anyhow::Result<()> {
       require_vulkan_adapter()?;
       let scene_file =
         load_scene(&scene)?;
-      run_bevy(cfg, scene, scene_file)
-        .context("runtime failed")
+      let scene_allows_inspector =
+        scene_file
+          .scene
+          .playback
+          .as_ref()
+          .and_then(|p| {
+            p.enable_introspection
+          })
+          .unwrap_or(false);
+
+      let mut app = build_app(
+        cfg.clone(),
+        scene.clone(),
+        scene_file
+      )
+      .context("build app")?;
+      ui::maybe_add_ui_plugins(
+        &cfg,
+        scene_allows_inspector,
+        &mut app
+      )?;
+      app.run();
+      Ok(())
     }
     | Command::Bake {
       scene,
@@ -250,12 +273,31 @@ fn main() -> anyhow::Result<()> {
 
       let scene_file =
         load_scene(&scene_path)?;
-      run_bevy(
-        cfg, scene_path, scene_file
+      let scene_allows_inspector =
+        scene_file
+          .scene
+          .playback
+          .as_ref()
+          .and_then(|p| {
+            p.enable_introspection
+          })
+          .unwrap_or(false);
+
+      let mut app = build_app(
+        cfg.clone(),
+        scene_path,
+        scene_file
       )
       .context(
-        "baked playback runtime failed"
-      )
+        "build baked playback app"
+      )?;
+      ui::maybe_add_ui_plugins(
+        &cfg,
+        scene_allows_inspector,
+        &mut app
+      )?;
+      app.run();
+      Ok(())
     }
     | Command::TraceTimeline {
       scene,

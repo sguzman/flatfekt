@@ -12,6 +12,9 @@ tracing-appender.workspace = true
 tracing-subscriber.workspace = true
 wgpu.workspace = true
 pollster.workspace = true
+bevy.workspace = true
+bevy_egui.workspace = true
+bevy-inspector-egui.workspace = true
 
 flatfekt-config = { path = "../../crates/flatfekt-config" }
 flatfekt-runtime = { path = "../../crates/flatfekt-runtime" }

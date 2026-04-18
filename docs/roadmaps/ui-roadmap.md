@@ -30,6 +30,8 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
 ### M2 — timeline controls
 - [x] Add play/pause/step controls for timeline playback
 - [x] Add timeline scrubber and current time display
+  - [x] Provide scrubber UI in `flatfekt-viewer`
+  - [x] Provide scrubber UI in `flatfekt` (including `play-bake`)
 
 ### M2b — scene playback (video-like)
 - [x] Add rewind/fast-forward controls (when enabled by scene policy)
