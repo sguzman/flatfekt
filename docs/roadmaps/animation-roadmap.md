@@ -23,6 +23,7 @@ Provide time-based change primitives (tweens, keyframes, timelines) for declarat
 - [x] Implement timeline event loader and validator (time-ordered, non-negative)
 - [x] Implement event types: apply patch, start tween, stop tween, scene transition (optional)
 - [x] Add deterministic playback mode (fixed dt) behind config knob
+- [x] Add detailed `tracing` for timeline dispatch (cursor/clock, per-event action/target/time, parse failures)
 
 ### M2 — sequencing + composition
 - [x] Add named tracks and track-level enable/disable

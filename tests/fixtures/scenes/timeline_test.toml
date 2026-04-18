@@ -7,7 +7,7 @@ loop_mode = "stop"
 allow_user_input = false
 allow_scrub = true
 allow_rewind = true
-enable_introspection = false
+enable_introspection = true
 
 [[scene.timeline]]
 time = 0.0

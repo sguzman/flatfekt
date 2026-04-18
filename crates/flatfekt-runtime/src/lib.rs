@@ -510,10 +510,23 @@ fn timeline_driver(
     return;
   }
 
+  tracing::trace!(
+    t_secs = clock.t_secs,
+    playing = clock.playing,
+    dt_secs = clock.dt_secs,
+    accumulator_secs =
+      clock.accumulator_secs,
+    "timeline tick begin"
+  );
+
   if clock.step_once {
     clock.step_once = false;
     clock.t_secs += clock.dt_secs;
     enforce_duration(&mut clock);
+    tracing::debug!(
+      t_secs = clock.t_secs,
+      "timeline step_once advanced"
+    );
     return;
   }
 
@@ -547,6 +560,16 @@ fn timeline_driver(
     if !clock.playing {
       break;
     }
+  }
+
+  if steps > 0 {
+    tracing::debug!(
+      steps,
+      t_secs = clock.t_secs,
+      accumulator_secs =
+        clock.accumulator_secs,
+      "timeline advanced"
+    );
   }
 
   if steps == clock.max_catchup_steps
@@ -610,6 +633,15 @@ fn instantiate_scene(
 ) {
   let _ = &cfg.0;
   let scene = &scene.0.scene;
+
+  tracing::info!(
+    entities = scene.entities.len(),
+    has_timeline = scene
+      .timeline
+      .as_ref()
+      .is_some_and(|t| !t.is_empty()),
+    "instantiating scene"
+  );
 
   spawned.0.clear();
   entity_map.0.clear();
@@ -883,6 +915,14 @@ fn spawn_text(
   spec: &flatfekt_schema::TextSpec,
   tf: Transform
 ) -> Entity {
+  tracing::debug!(
+    text_value = spec.value.as_deref(),
+    text_size = spec.size,
+    text_align = spec.align.as_deref(),
+    text_anchor =
+      spec.anchor.as_deref(),
+    "spawning text"
+  );
   let font_handle =
     spec.font.as_ref().and_then(|a| {
       bevy_load::load_font_cached(
@@ -1483,6 +1523,7 @@ pub fn apply_patch_system(
 
   for ev in events.read() {
     changed = true;
+    tracing::info!(patch = ?ev.0, "applying patch");
     match &ev.0 {
       | ScenePatch::Add {
         entity
@@ -1507,6 +1548,12 @@ pub fn apply_patch_system(
           .iter_mut()
           .find(|e| e.id == *entity_id)
         {
+          tracing::debug!(
+            entity_id =
+              entity_id.as_str(),
+            "patch update matched \
+             entity"
+          );
           if let Some(tags) =
             &patch.tags
           {
@@ -1537,6 +1584,13 @@ pub fn apply_patch_system(
             ent.shape =
               Some(shape.clone());
           }
+        } else {
+          tracing::warn!(
+            entity_id =
+              entity_id.as_str(),
+            "patch update target \
+             entity not found"
+          );
         }
       }
     }

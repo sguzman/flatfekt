@@ -128,6 +128,10 @@ pub fn init_timeline_plan(
   let Some(timeline) =
     &scene.0.scene.timeline
   else {
+    tracing::info!(
+      "scene has no timeline; no \
+       events planned"
+    );
     commands.insert_resource(plan);
     return;
   };
@@ -226,6 +230,18 @@ pub fn init_timeline_plan(
       )
   });
   plan.cursor = 0;
+  tracing::info!(
+    planned_events = plan.events.len(),
+    first_time = plan
+      .events
+      .first()
+      .map(|e| e.time),
+    last_time = plan
+      .events
+      .last()
+      .map(|e| e.time),
+    "timeline plan initialized"
+  );
   commands.insert_resource(plan);
 }
 
@@ -333,10 +349,20 @@ pub fn process_timeline_events(
   mut commands: Commands
 ) {
   if !clock.enabled {
+    tracing::debug!(
+      "timeline disabled; skipping \
+       event processing"
+    );
     return;
   }
   let t = clock.t_secs;
   if t < *last_t {
+    tracing::info!(
+      from = *last_t,
+      to = t,
+      "timeline time moved backwards; \
+       resetting cursor"
+    );
     plan.cursor = 0;
   }
   *last_t = t;
@@ -347,6 +373,16 @@ pub fn process_timeline_events(
   {
     let ev =
       plan.events[plan.cursor].clone();
+    tracing::info!(
+      t_secs = t,
+      cursor = plan.cursor,
+      event_time = ev.time,
+      action = ev.action.as_str(),
+      target = ev.target.as_deref(),
+      track = ev.track.as_deref(),
+      label = ev.label.as_deref(),
+      "dispatching timeline event"
+    );
     plan.cursor += 1;
     dispatch_event(
       &ev,
@@ -366,17 +402,25 @@ fn dispatch_event(
   match ev.action.as_str() {
     | "apply_patch" => {
       if let Some(p) = &ev.payload {
-        if let Ok(patch) =
-          parse_scene_patch(p)
-        {
-          commands.trigger(
-            crate::ApplyPatch(patch)
-          );
-        } else {
-          tracing::warn!(
-            action = %ev.action,
-            "failed to parse ScenePatch payload"
-          );
+        match parse_scene_patch(p) {
+          | Ok(patch) => {
+            tracing::info!(
+              ?patch,
+              "timeline apply_patch \
+               parsed"
+            );
+            commands.trigger(
+              crate::ApplyPatch(patch)
+            );
+          }
+          | Err(err) => {
+            tracing::warn!(
+              action = %ev.action,
+              error = %err,
+              payload = %toml::to_string_pretty(p).unwrap_or_else(|_| "<unprintable payload>".to_owned()),
+              "failed to parse ScenePatch payload"
+            );
+          }
         }
       }
     }

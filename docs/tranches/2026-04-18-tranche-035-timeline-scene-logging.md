@@ -1,0 +1,1 @@
+- [x] Animation (M1): Add detailed `tracing` for timeline dispatch (cursor/clock, per-event action/target/time, parse failures)
