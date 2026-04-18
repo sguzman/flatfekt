@@ -20,7 +20,7 @@ Own the engine’s “physics/rules” evolution loop: fixed timesteps, physics 
 ### M1 — simple physics integration (feature-gated)
 - [x] Choose and integrate a maintained 2D physics crate behind a feature flag (document choice: Stubbed for now with native gravity)
 - [x] Define schema mapping for rigid bodies/colliders (owned by schema+runtime integration)
-- [ ] Implement deterministic stepping integration tests (positions after N ticks)
+- [x] Implement deterministic stepping integration tests (positions after N ticks)
 
 ### M2 — constraints and fields
 - [x] Add force field systems (attract/repel: Stubbed as gravity) driven by config

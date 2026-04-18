@@ -91,7 +91,7 @@ warn_and_continue = true
 
 [simulation]
 # Simulation stepping scaffold (separate from timeline).
-enabled = false
+enabled = true
 deterministic = true
 fixed_dt_secs = 0.016666667
 max_catchup_steps = 4

@@ -6,8 +6,11 @@ use flatfekt_runtime::simulation::{
   SimulationClock,
   SimulationSeed,
   init_simulation,
-  simulation_driver
+  simulation_driver,
+  SimRegionRes
 };
+use flatfekt_runtime::SceneRes;
+use flatfekt_schema::SceneFile;
 
 #[test]
 fn simulation_steps_are_deterministic_with_fixed_dt()
@@ -32,12 +35,23 @@ fn simulation_steps_are_deterministic_with_fixed_dt()
   .expect("config parses");
   cfg.validate().expect("config valid");
 
+  let scene_file: SceneFile = toml::from_str(
+    r#"
+      [scene]
+      schema_version = "0.1"
+      entities = []
+    "#
+  )
+  .expect("scene parses");
+
   let mut app = App::new();
   app
     .insert_resource(ConfigRes(cfg))
+    .insert_resource(SceneRes(scene_file))
     .add_message::<SimTick>()
     .init_resource::<SimulationClock>()
     .init_resource::<SimulationSeed>()
+    .init_resource::<SimRegionRes>()
     .add_systems(
       Startup,
       init_simulation

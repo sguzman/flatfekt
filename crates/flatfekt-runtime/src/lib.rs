@@ -222,6 +222,7 @@ impl Plugin for FlatfektRuntimePlugin {
       .init_resource::<TimelineClock>()
       .init_resource::<simulation::SimulationClock>()
       .init_resource::<simulation::SimulationSeed>()
+      .init_resource::<simulation::SimRegionRes>()
       .add_systems(
         Startup,
         init_timeline_clock
@@ -263,7 +264,15 @@ impl Plugin for FlatfektRuntimePlugin {
           .after(timeline_driver)
           .before(animation::process_timeline_events)
       )
-      .add_observer(simulation::gravity_system)
+      .add_systems(
+        Update,
+        (
+          simulation::gravity_system,
+          simulation::bounds_collision_system
+        )
+          .in_set(FlatfektSet::SimTick)
+          .after(simulation::simulation_driver)
+      )
       .add_observer(simulation::sim_control_system)
       .insert_resource(interaction::ActionMap::default())
       .insert_resource(export::ExportSettings::default())
@@ -706,6 +715,10 @@ fn instantiate_scene(
     let tf = transform_from_spec(
       ent.transform
     );
+    let physics = ent.physics.as_ref();
+    let collider =
+      ent.collider.as_ref();
+
     if let Some(shape) = &ent.shape {
       plan.push(SpawnOp {
         id: &ent.id,
@@ -713,7 +726,9 @@ fn instantiate_scene(
         tf,
         shape: Some(shape),
         sprite: None,
-        text: None
+        text: None,
+        physics,
+        collider
       });
     }
     if let Some(sprite) = &ent.sprite {
@@ -723,7 +738,9 @@ fn instantiate_scene(
         tf,
         shape: None,
         sprite: Some(sprite),
-        text: None
+        text: None,
+        physics,
+        collider
       });
     }
     if let Some(text) = &ent.text {
@@ -733,7 +750,9 @@ fn instantiate_scene(
         tf,
         shape: None,
         sprite: None,
-        text: Some(text)
+        text: Some(text),
+        physics,
+        collider
       });
     }
   }
@@ -758,7 +777,9 @@ fn instantiate_scene(
           op.id,
           scene.defaults.as_ref(),
           op.shape.unwrap(),
-          op.tf
+          op.tf,
+          op.physics,
+          op.collider
         )
       }
       | RenderKind::Sprite => {
@@ -771,7 +792,9 @@ fn instantiate_scene(
           op.id,
           scene.defaults.as_ref(),
           op.sprite.unwrap(),
-          op.tf
+          op.tf,
+          op.physics,
+          op.collider
         )
       }
       | RenderKind::Text => {
@@ -800,9 +823,9 @@ fn instantiate_scene(
 }
 
 struct SpawnOp<'a> {
-  id:     &'a str,
-  kind:   RenderKind,
-  tf:     Transform,
+  id:       &'a str,
+  kind:     RenderKind,
+  tf:       Transform,
   shape: Option<
     &'a flatfekt_schema::ShapeSpec
   >,
@@ -811,6 +834,12 @@ struct SpawnOp<'a> {
   >,
   text: Option<
     &'a flatfekt_schema::TextSpec
+  >,
+  physics: Option<
+    &'a flatfekt_schema::PhysicsSpec
+  >,
+  collider: Option<
+    &'a flatfekt_schema::ColliderSpec
   >
 }
 
@@ -846,7 +875,13 @@ fn spawn_sprite(
     &flatfekt_schema::DefaultsSpec
   >,
   spec: &flatfekt_schema::SpriteSpec,
-  tf: Transform
+  tf: Transform,
+  physics: Option<
+    &flatfekt_schema::PhysicsSpec
+  >,
+  collider: Option<
+    &flatfekt_schema::ColliderSpec
+  >
 ) -> Option<Entity> {
   let handle =
     bevy_load::load_image_cached(
@@ -882,6 +917,51 @@ fn spawn_sprite(
       }
       let mut entity =
         commands.spawn((sprite, tf));
+
+      if let Some(p) = physics {
+        entity.insert(
+          simulation::PhysicsBody {
+            velocity:    Vec2::ZERO,
+            mass:        p
+              .mass
+              .unwrap_or(1.0),
+            restitution: p
+              .restitution
+              .unwrap_or(0.5),
+            friction:    p
+              .friction
+              .unwrap_or(0.5),
+            fixed:       p.body_type
+              == "fixed"
+          }
+        );
+      }
+      if let Some(c) = collider {
+        match c.kind.as_str() {
+          | "circle" => {
+            entity.insert(
+              simulation::Collider::Circle {
+                radius: c
+                  .radius
+                  .unwrap_or(1.0)
+              }
+            );
+          }
+          | "rect" => {
+            let size = c
+              .size
+              .map(Vec2::from)
+              .unwrap_or(Vec2::ONE);
+            entity.insert(
+              simulation::Collider::Rect {
+                size
+              }
+            );
+          }
+          | _ => {}
+        }
+      }
+
       if let Some(anchor) = spec
         .anchor
         .as_deref()
@@ -1034,7 +1114,13 @@ fn spawn_shape(
     &flatfekt_schema::DefaultsSpec
   >,
   spec: &flatfekt_schema::ShapeSpec,
-  tf: Transform
+  tf: Transform,
+  physics: Option<
+    &flatfekt_schema::PhysicsSpec
+  >,
+  collider: Option<
+    &flatfekt_schema::ColliderSpec
+  >
 ) -> Option<Entity> {
   let color = spec
     .color
@@ -1054,11 +1140,14 @@ fn spawn_shape(
         color,
         Vec2::new(w, h)
       );
-      Some(
-        commands
-          .spawn((sprite, tf))
-          .id()
-      )
+      let mut entity =
+        commands.spawn((sprite, tf));
+      insert_physics(
+        &mut entity,
+        physics,
+        collider
+      );
+      Some(entity.id())
     }
     | "circle" => {
       let r = spec.radius?;
@@ -1066,18 +1155,23 @@ fn spawn_shape(
         Mesh::from(Circle::new(r))
       );
       let mat = mats.add(color);
-      Some(
-        commands
-          .spawn((
-            Mesh2d(mesh),
-            bevy::prelude::MeshMaterial2d(mat),
-            tf,
-            Name::new(format!(
-              "{entity_id}-circle"
-            ))
+      let mut entity =
+        commands.spawn((
+          Mesh2d(mesh),
+          bevy::prelude::MeshMaterial2d(
+            mat
+          ),
+          tf,
+          Name::new(format!(
+            "{entity_id}-circle"
           ))
-          .id()
-      )
+        ));
+      insert_physics(
+        &mut entity,
+        physics,
+        collider
+      );
+      Some(entity.id())
     }
     | "polygon" => {
       let r = spec.radius?;
@@ -1087,22 +1181,79 @@ fn spawn_shape(
           RegularPolygon::new(r, sides)
         ));
       let mat = mats.add(color);
-      Some(
-        commands
-          .spawn((
-            Mesh2d(mesh),
-            bevy::prelude::MeshMaterial2d(mat),
-            tf,
-            Name::new(format!(
-              "{entity_id}-polygon"
-            ))
+      let mut entity =
+        commands.spawn((
+          Mesh2d(mesh),
+          bevy::prelude::MeshMaterial2d(
+            mat
+          ),
+          tf,
+          Name::new(format!(
+            "{entity_id}-polygon"
           ))
-          .id()
-      )
+        ));
+      insert_physics(
+        &mut entity,
+        physics,
+        collider
+      );
+      Some(entity.id())
     }
     | _ => {
       tracing::error!(id = %entity_id, kind = %spec.kind, "unknown shape kind");
       None
+    }
+  }
+}
+
+fn insert_physics(
+  entity: &mut EntityCommands,
+  physics: Option<
+    &flatfekt_schema::PhysicsSpec
+  >,
+  collider: Option<
+    &flatfekt_schema::ColliderSpec
+  >
+) {
+  if let Some(p) = physics {
+    entity.insert(
+      simulation::PhysicsBody {
+        velocity:    Vec2::ZERO,
+        mass:        p
+          .mass
+          .unwrap_or(1.0),
+        restitution: p
+          .restitution
+          .unwrap_or(0.5),
+        friction:    p
+          .friction
+          .unwrap_or(0.5),
+        fixed:       p.body_type
+          == "fixed"
+      }
+    );
+  }
+  if let Some(c) = collider {
+    match c.kind.as_str() {
+      | "circle" => {
+        entity.insert(
+          simulation::Collider::Circle {
+            radius: c.radius.unwrap_or(1.0)
+          }
+        );
+      }
+      | "rect" => {
+        let size = c
+          .size
+          .map(Vec2::from)
+          .unwrap_or(Vec2::ONE);
+        entity.insert(
+          simulation::Collider::Rect {
+            size
+          }
+        );
+      }
+      | _ => {}
     }
   }
 }

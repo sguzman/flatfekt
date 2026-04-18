@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use tracing::instrument;
 
-use crate::ConfigRes;
+use crate::{
+  ConfigRes,
+  SceneRes
+};
 
 #[derive(Resource, Debug, Clone)]
 pub struct SimulationSeed(pub u64);
@@ -66,10 +69,16 @@ pub struct SimTick {
 #[instrument(level = "info", skip_all)]
 pub fn init_simulation(
   cfg: Res<ConfigRes>,
+  scene: Res<SceneRes>,
   mut clock: ResMut<SimulationClock>,
-  mut seed: ResMut<SimulationSeed>
+  mut seed: ResMut<SimulationSeed>,
+  mut region: ResMut<SimRegionRes>
 ) {
   let cfg = &cfg.0;
+  tracing::info!(
+    sim_cfg = ?cfg.simulation,
+    "init_simulation: checking config"
+  );
   clock.enabled =
     cfg.simulation_enabled();
   clock.playing =
@@ -82,8 +91,28 @@ pub fn init_simulation(
   clock.accumulator_secs = 0.0;
   clock.steps_total = 0;
   seed.0 = cfg.simulation_seed();
+
+  if let Some(sim_spec) =
+    &scene.0.scene.simulation
+  {
+    region.gravity =
+      Vec2::from(sim_spec.gravity);
+    if let Some(b) = sim_spec.bounds {
+      region.bounds = Some(Rect::new(
+        b[0], b[1], b[2], b[3]
+      ));
+    } else {
+      region.bounds = None;
+    }
+  } else {
+    region.gravity =
+      Vec2::new(0.0, -9.81);
+    region.bounds = None;
+  }
+
   tracing::info!(
     ?clock,
+    ?region,
     seed = seed.0,
     "initialized simulation"
   );
@@ -150,8 +179,25 @@ pub fn simulation_driver(
   Component, Debug, Clone, Default,
 )]
 pub struct PhysicsBody {
-  pub velocity: Vec2,
-  pub mass:     f32
+  pub velocity:    Vec2,
+  pub mass:        f32,
+  pub restitution: f32,
+  pub friction:    f32,
+  pub fixed:       bool
+}
+
+#[derive(Component, Debug, Clone)]
+pub enum Collider {
+  Circle { radius: f32 },
+  Rect { size: Vec2 }
+}
+
+#[derive(
+  Resource, Debug, Clone, Default,
+)]
+pub struct SimRegionRes {
+  pub gravity: Vec2,
+  pub bounds:  Option<Rect>
 }
 
 #[derive(
@@ -164,21 +210,152 @@ pub struct EntityHealth {
 
 #[instrument(level = "trace", skip_all)]
 pub fn gravity_system(
-  tick: On<SimTick>,
+  mut ticks: MessageReader<SimTick>,
+  region: Res<SimRegionRes>,
   mut query: Query<(
     &mut PhysicsBody,
     &mut Transform
   )>
 ) {
-  let dt = tick.event().dt_secs;
-  // Stub gravity vector
-  let gravity = Vec2::new(0.0, -9.81);
-  for (mut body, mut tf) in
-    query.iter_mut()
-  {
-    body.velocity += gravity * dt;
-    tf.translation +=
-      body.velocity.extend(0.0) * dt;
+  for tick in ticks.read() {
+    let dt = tick.dt_secs;
+    let gravity = region.gravity;
+    for (mut body, mut tf) in
+      query.iter_mut()
+    {
+      if body.fixed {
+        continue;
+      }
+      body.velocity += gravity * dt;
+      tf.translation +=
+        body.velocity.extend(0.0) * dt;
+    }
+  }
+}
+
+#[instrument(level = "trace", skip_all)]
+pub fn bounds_collision_system(
+  mut ticks: MessageReader<SimTick>,
+  region: Res<SimRegionRes>,
+  mut query: Query<(
+    &mut PhysicsBody,
+    &mut Transform,
+    &Collider
+  )>
+) {
+  let Some(bounds) = region.bounds
+  else {
+    return;
+  };
+
+  for _ in ticks.read() {
+    for (mut body, mut tf, collider) in
+      query.iter_mut()
+    {
+      if body.fixed {
+        continue;
+      }
+
+      match collider {
+        | Collider::Circle {
+          radius
+        } => {
+          let pos = tf.translation.xy();
+          let mut new_pos = pos;
+          let mut hit = false;
+
+          if pos.x - radius
+            < bounds.min.x
+          {
+            new_pos.x =
+              bounds.min.x + radius;
+            body.velocity.x *=
+              -body.restitution;
+            hit = true;
+          } else if pos.x + radius
+            > bounds.max.x
+          {
+            new_pos.x =
+              bounds.max.x - radius;
+            body.velocity.x *=
+              -body.restitution;
+            hit = true;
+          }
+
+          if pos.y - radius
+            < bounds.min.y
+          {
+            new_pos.y =
+              bounds.min.y + radius;
+            body.velocity.y *=
+              -body.restitution;
+            hit = true;
+          } else if pos.y + radius
+            > bounds.max.y
+          {
+            new_pos.y =
+              bounds.max.y - radius;
+            body.velocity.y *=
+              -body.restitution;
+            hit = true;
+          }
+
+          if hit {
+            tf.translation = new_pos
+              .extend(tf.translation.z);
+          }
+        }
+        | Collider::Rect {
+          size
+        } => {
+          let pos = tf.translation.xy();
+          let half_size = *size * 0.5;
+          let mut new_pos = pos;
+          let mut hit = false;
+
+          if pos.x - half_size.x
+            < bounds.min.x
+          {
+            new_pos.x = bounds.min.x
+              + half_size.x;
+            body.velocity.x *=
+              -body.restitution;
+            hit = true;
+          } else if pos.x + half_size.x
+            > bounds.max.x
+          {
+            new_pos.x = bounds.max.x
+              - half_size.x;
+            body.velocity.x *=
+              -body.restitution;
+            hit = true;
+          }
+
+          if pos.y - half_size.y
+            < bounds.min.y
+          {
+            new_pos.y = bounds.min.y
+              + half_size.y;
+            body.velocity.y *=
+              -body.restitution;
+            hit = true;
+          } else if pos.y + half_size.y
+            > bounds.max.y
+          {
+            new_pos.y = bounds.max.y
+              - half_size.y;
+            body.velocity.y *=
+              -body.restitution;
+            hit = true;
+          }
+
+          if hit {
+            tf.translation = new_pos
+              .extend(tf.translation.z);
+          }
+        }
+      }
+    }
   }
 }
 
