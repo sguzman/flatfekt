@@ -123,6 +123,41 @@ copy_assets = true
 hash_algorithm = "xxhash64"
 time_scale = 1.0
 
+[export.frames]
+# Root for export outputs. Each export creates a unique run directory under:
+# `.cache/flatfekt/scene/<scene>/exports/<scene_xxhash>/run-<timestamp>-<pid>/`
+output_root = ".cache/flatfekt/scene"
+
+# Default export timing (CLI overrides take precedence).
+default_fps = 60.0
+default_duration_secs = 10.0
+
+# Render resolution for exported frames.
+width = 1920
+height = 1080
+
+# If true, show a window while exporting frames (debugging).
+window_visible = false
+
+# If true, overwrite an existing export directory.
+overwrite = false
+
+[export.video]
+# Path to ffmpeg executable (used for mp4 encoding).
+ffmpeg_path = "ffmpeg"
+
+# Video encoding defaults.
+codec = "libx264"
+preset = "medium"
+crf = 18
+pix_fmt = "yuv420p"
+
+# If true, overwrite the output mp4.
+overwrite = false
+
+# If true, keep exported PNG frames after encoding.
+keep_frames = false
+
 [ui.timeline]
 # Mousewheel time seeking when the cursor is over the timeline scrubber.
 wheel_seek_secs = 0.1

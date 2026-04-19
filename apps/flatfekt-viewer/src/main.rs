@@ -420,12 +420,12 @@ fn egui_control_panel(
         ui.label(format!("Bake Version: {}", baked.version));
         ui.label(format!("FPS: {:.1}", baked.playback.fps));
         ui.label(format!("Total Duration: {:.3}s", baked.playback.duration_secs));
-        
-        // Calculate total frames. 
+
+        // Calculate total frames.
         // We use the playback specs to determine the theoretical frame count.
         let frames = (baked.playback.duration_secs * baked.playback.fps).round() as u64;
         ui.label(format!("Total Frames: {}", frames));
-        
+
         ui.label(format!("Baked Entities: {}", baked.entities.len()));
         ui.label(format!("Baked Events: {}", baked.events.len()));
       });

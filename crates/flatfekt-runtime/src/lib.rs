@@ -317,9 +317,7 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_observer(simulation::sim_control_system)
       .insert_resource(interaction::ActionMap::default())
-      .insert_resource(export::ExportSettings::default())
       .init_resource::<DebugSettings>()
-      .insert_resource(export::ReplayBuffer::default())
       .add_systems(
         Update,
         (
@@ -332,8 +330,6 @@ impl Plugin for FlatfektRuntimePlugin {
           interaction::picking_system,
           agents::agent_tick_system,
           agents::scripting_system,
-          export::export_system,
-          export::replay_system
         )
       )
       .add_systems(

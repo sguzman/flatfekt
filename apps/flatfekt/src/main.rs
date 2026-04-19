@@ -11,6 +11,7 @@ use flatfekt_runtime::{
   LoadError,
   bake,
   build_app,
+  export,
   load_config,
   load_scene
 };
@@ -90,6 +91,80 @@ enum Command {
   /// `bake.json`), with simulation
   /// disabled.
   PlayBake { input: PathBuf },
+  /// Export a deterministic PNG frame
+  /// sequence (for motion graphics)
+  /// from a scene or bake artifact.
+  ///
+  /// If a scene TOML is provided,
+  /// Flatfekt bakes first, then exports
+  /// frames from baked playback.
+  ExportFrames {
+    input:          PathBuf,
+    /// Override `export.frames.
+    /// output_root`.
+    #[arg(long)]
+    output_root:    Option<PathBuf>,
+    /// Override FPS (frames per
+    /// second).
+    #[arg(long)]
+    fps:            Option<f32>,
+    /// Override duration (seconds).
+    #[arg(long)]
+    duration_secs:  Option<f32>,
+    /// Override render width (pixels).
+    #[arg(long)]
+    width:          Option<u32>,
+    /// Override render height
+    /// (pixels).
+    #[arg(long)]
+    height:         Option<u32>,
+    /// Overwrite existing export
+    /// output directory, if any.
+    #[arg(long)]
+    overwrite:      bool,
+    /// Render with a visible window
+    /// (useful for debugging export).
+    #[arg(long)]
+    window_visible: bool
+  },
+  /// Export MP4 video from a scene or
+  /// bake artifact.
+  ///
+  /// If a scene TOML is provided,
+  /// Flatfekt bakes first, then exports
+  /// frames and encodes them via
+  /// `ffmpeg`.
+  ExportMp4 {
+    input:          PathBuf,
+    /// Optional output mp4 path.
+    #[arg(long)]
+    out:            Option<PathBuf>,
+    /// Override FPS (frames per
+    /// second).
+    #[arg(long)]
+    fps:            Option<f32>,
+    /// Override duration (seconds).
+    #[arg(long)]
+    duration_secs:  Option<f32>,
+    /// Override render width (pixels).
+    #[arg(long)]
+    width:          Option<u32>,
+    /// Override render height
+    /// (pixels).
+    #[arg(long)]
+    height:         Option<u32>,
+    /// Overwrite output files, if any.
+    #[arg(long)]
+    overwrite:      bool,
+    /// Keep exported PNG frames after
+    /// encoding.
+    #[arg(long)]
+    keep_frames:    bool,
+    /// Render with a visible window
+    /// (useful for debugging export).
+    #[arg(long)]
+    window_visible: bool
+  },
   /// Run a scene's timeline headlessly
   /// (no window) and log dispatched
   /// events + patch application.
@@ -299,6 +374,78 @@ fn main() -> anyhow::Result<()> {
       app.run();
       Ok(())
     }
+    | Command::ExportFrames {
+      input,
+      output_root,
+      fps,
+      duration_secs,
+      width,
+      height,
+      overwrite,
+      window_visible
+    } => {
+      configure_unix_backend_env(
+        &cfg, cli.x11
+      )?;
+      require_vulkan_adapter()?;
+
+      let export_req = ExportRequest {
+        input,
+        output_root,
+        fps,
+        duration_secs,
+        width,
+        height,
+        overwrite,
+        window_visible,
+        keep_frames: true
+      };
+
+      let res = run_export_frames(
+        cfg, export_req
+      )
+      .context("export frames")?;
+      println!(
+        "{}",
+        res.output_dir.display()
+      );
+      Ok(())
+    }
+    | Command::ExportMp4 {
+      input,
+      out,
+      fps,
+      duration_secs,
+      width,
+      height,
+      overwrite,
+      keep_frames,
+      window_visible
+    } => {
+      configure_unix_backend_env(
+        &cfg, cli.x11
+      )?;
+      require_vulkan_adapter()?;
+
+      let export_req = ExportRequest {
+        input,
+        output_root: None,
+        fps,
+        duration_secs,
+        width,
+        height,
+        overwrite,
+        window_visible,
+        keep_frames: keep_frames
+      };
+
+      let out = run_export_mp4(
+        cfg, export_req, out
+      )
+      .context("export mp4")?;
+      println!("{}", out.display());
+      Ok(())
+    }
     | Command::TraceTimeline {
       scene,
       max_steps,
@@ -325,6 +472,461 @@ fn main() -> anyhow::Result<()> {
       Ok(())
     }
   }
+}
+
+#[derive(Debug, Clone)]
+struct ExportRequest {
+  input:          PathBuf,
+  output_root:    Option<PathBuf>,
+  fps:            Option<f32>,
+  duration_secs:  Option<f32>,
+  width:          Option<u32>,
+  height:         Option<u32>,
+  overwrite:      bool,
+  window_visible: bool,
+  keep_frames:    bool
+}
+
+#[derive(Debug, Clone)]
+struct ExportFramesResult {
+  output_dir: PathBuf,
+  frames_dir: PathBuf,
+  fps:        f32
+}
+
+fn run_export_frames(
+  cfg: RootConfig,
+  req: ExportRequest
+) -> anyhow::Result<ExportFramesResult>
+{
+  let (
+    bake_dir,
+    bake_json_path,
+    scene_path,
+    cfg
+  ) = resolve_export_input(cfg, &req)?;
+
+  tracing::info!(
+    bake_dir = %bake_dir.display(),
+    bake_json = %bake_json_path.display(),
+    scene_playback = %scene_path.display(),
+    "export uses baked playback input"
+  );
+
+  let baked =
+    std::fs::read(&bake_json_path)
+      .with_context(|| {
+        format!(
+          "failed to read bake json \
+           at {}",
+          bake_json_path.display()
+        )
+      })?;
+  let baked: bake::BakedSimulation =
+    serde_json::from_slice(&baked)
+      .context(
+        "failed to parse bake json"
+      )?;
+
+  let created_unix_secs =
+    export::now_unix_secs()?;
+  let pid = std::process::id();
+
+  let scene_src_path = PathBuf::from(
+    &baked.meta.source_scene_path
+  );
+  let scene_hash = baked
+    .meta
+    .source_scene_xxhash64
+    .clone();
+
+  let output_root = req
+    .output_root
+    .unwrap_or_else(|| {
+      cfg.export_frames_output_root()
+    });
+
+  let output_dir =
+    export::export_output_dir_for_scene(
+      &output_root,
+      &scene_src_path,
+      &scene_hash,
+      created_unix_secs,
+      pid
+    );
+  let paths =
+    export::export_paths_from_output_dir(
+      output_dir
+    );
+
+  let fps =
+    req.fps.unwrap_or_else(|| {
+      cfg.export_frames_default_fps()
+    });
+  let duration_secs =
+    req.duration_secs.unwrap_or_else(
+      || {
+        cfg.export_frames_default_duration_secs()
+      }
+    );
+
+  let width =
+    req.width.unwrap_or_else(|| {
+      cfg.export_frames_width()
+    });
+  let height =
+    req.height.unwrap_or_else(|| {
+      cfg.export_frames_height()
+    });
+
+  let manifest =
+    export::ExportManifest {
+      version: "0.1".to_string(),
+      created_unix_secs,
+      tool: "flatfekt".to_string(),
+      tool_version: env!(
+        "CARGO_PKG_VERSION"
+      )
+      .to_string(),
+      source_scene_path: baked
+        .meta
+        .source_scene_path
+        .clone(),
+      source_scene_xxhash64: baked
+        .meta
+        .source_scene_xxhash64
+        .clone(),
+      fps,
+      duration_secs,
+      frame_count: 0,
+      frame_pattern: format!(
+        "{}/frame-%06d.png",
+        export::EXPORT_FRAMES_DIR
+      )
+    };
+
+  let job =
+    export::ExportFramesJob::new(
+      paths.clone(),
+      fps,
+      duration_secs,
+      width,
+      height,
+      req.overwrite
+        || cfg
+          .export_frames_overwrite(),
+      req.window_visible
+        || cfg
+          .export_frames_window_visible(
+          ),
+      manifest
+    )
+    .context("invalid export job")?;
+
+  let scene_file =
+    load_scene(&scene_path)?;
+  let mut app = build_app(
+    cfg.clone(),
+    scene_path.clone(),
+    scene_file
+  )
+  .context("build export app")?;
+  app.add_plugins(
+    export::FlatfektExportPlugin
+  );
+  app.insert_resource(job);
+
+  tracing::info!(
+    width,
+    height,
+    "starting export render loop"
+  );
+  app.run();
+
+  Ok(ExportFramesResult {
+    output_dir: paths.dir,
+    frames_dir: paths.frames_dir,
+    fps
+  })
+}
+
+fn run_export_mp4(
+  cfg: RootConfig,
+  req: ExportRequest,
+  out: Option<PathBuf>
+) -> anyhow::Result<PathBuf> {
+  let frames = run_export_frames(
+    cfg.clone(),
+    req.clone()
+  )
+  .context("export frames for mp4")?;
+
+  let out_mp4 =
+    out.unwrap_or_else(|| {
+      frames
+        .output_dir
+        .join("video.mp4")
+    });
+
+  let ffmpeg_path =
+    cfg.export_video_ffmpeg_path();
+  ensure_ffmpeg_available(
+    &ffmpeg_path
+  )?;
+
+  encode_mp4_from_png_sequence(
+    &ffmpeg_path,
+    &frames.frames_dir,
+    frames.fps,
+    &out_mp4,
+    req.overwrite
+      || cfg.export_video_overwrite(),
+    cfg.export_video_codec(),
+    cfg.export_video_preset(),
+    cfg.export_video_crf(),
+    cfg.export_video_pix_fmt()
+  )?;
+
+  if !req.keep_frames
+    && !cfg.export_video_keep_frames()
+  {
+    tracing::info!(
+      dir = %frames.frames_dir.display(),
+      "removing exported frames"
+    );
+    let _ = std::fs::remove_dir_all(
+      &frames.frames_dir
+    );
+  }
+
+  Ok(out_mp4)
+}
+
+fn resolve_export_input(
+  cfg: RootConfig,
+  req: &ExportRequest
+) -> anyhow::Result<(
+  PathBuf,
+  PathBuf,
+  PathBuf,
+  RootConfig
+)> {
+  if req
+    .input
+    .extension()
+    .and_then(|e| e.to_str())
+    == Some("toml")
+    && !req.input.is_dir()
+  {
+    let scene_path = req.input.clone();
+    let scene_bytes =
+      std::fs::read(&scene_path)
+        .with_context(|| {
+          format!(
+            "failed to read scene \
+             bytes at {}",
+            scene_path.display()
+          )
+        })?;
+    let scene_file =
+      load_scene(&scene_path)?;
+
+    let bake_req = bake::BakeRequest {
+      output_root: cfg.export_bake_output_root(),
+      fps: req.fps.unwrap_or_else(|| {
+        cfg.export_bake_default_fps()
+      }),
+      duration_secs: req
+        .duration_secs
+        .unwrap_or_else(|| {
+          cfg.export_bake_default_duration_secs()
+        }),
+      copy_assets: cfg.export_bake_copy_assets(),
+    };
+
+    tracing::info!(
+      scene = %scene_path.display(),
+      "auto-baking scene for export"
+    );
+    let bake_out =
+      bake::bake_scene_to_dir(
+        cfg.clone(),
+        scene_path.clone(),
+        scene_bytes,
+        scene_file,
+        bake_req
+      )
+      .context(
+        "auto-bake for export failed"
+      )?;
+
+    let bake_dir = bake_out.dir;
+    let bake_json_path =
+      bake_out.bake_json_path;
+    let scene_playback_path =
+      bake_out.scene_playback_path;
+
+    let mut cfg = cfg;
+    cfg
+      .app
+      .get_or_insert_with(
+        Default::default
+      )
+      .assets_dir =
+      Some(bake_dir.clone());
+
+    return Ok((
+      bake_dir,
+      bake_json_path,
+      scene_playback_path,
+      cfg
+    ));
+  }
+
+  let (bake_dir, bake_json_path) =
+    if req.input.is_dir() {
+      (
+        req.input.clone(),
+        req
+          .input
+          .join(bake::BAKE_JSON_FILE)
+      )
+    } else {
+      let parent = req
+        .input
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| {
+          PathBuf::from(".")
+        });
+      (parent, req.input.clone())
+    };
+
+  if !bake_json_path.exists() {
+    anyhow::bail!(
+      "bake json not found at {}",
+      bake_json_path.display()
+    );
+  }
+
+  let scene_playback_path = bake_dir
+    .join(
+      bake::BAKE_SCENE_PLAYBACK_TOML
+    );
+  if !scene_playback_path.exists() {
+    anyhow::bail!(
+      "scene_playback.toml not found \
+       at {}",
+      scene_playback_path.display()
+    );
+  }
+
+  let mut cfg = cfg;
+  cfg
+    .app
+    .get_or_insert_with(
+      Default::default
+    )
+    .assets_dir =
+    Some(bake_dir.clone());
+
+  Ok((
+    bake_dir,
+    bake_json_path,
+    scene_playback_path,
+    cfg
+  ))
+}
+
+fn ensure_ffmpeg_available(
+  ffmpeg: &PathBuf
+) -> anyhow::Result<()> {
+  let mut cmd =
+    std::process::Command::new(ffmpeg);
+  cmd.arg("-version");
+  let out = cmd.output().with_context(
+    || {
+      format!(
+        "failed to run ffmpeg at {}",
+        ffmpeg.display()
+      )
+    }
+  )?;
+  if !out.status.success() {
+    anyhow::bail!(
+      "ffmpeg failed -version (status \
+       {})",
+      out.status
+    );
+  }
+  Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_mp4_from_png_sequence(
+  ffmpeg: &PathBuf,
+  frames_dir: &PathBuf,
+  fps: f32,
+  out_mp4: &PathBuf,
+  overwrite: bool,
+  codec: String,
+  preset: String,
+  crf: u32,
+  pix_fmt: String
+) -> anyhow::Result<()> {
+  if out_mp4.exists() && !overwrite {
+    anyhow::bail!(
+      "output mp4 already exists at \
+       {}; pass --overwrite or set \
+       export.video.overwrite=true",
+      out_mp4.display()
+    );
+  }
+
+  let mut cmd =
+    std::process::Command::new(ffmpeg);
+  let args = flatfekt_runtime::export::ffmpeg_mp4_args(
+    frames_dir,
+    fps,
+    out_mp4,
+    &flatfekt_runtime::export::FfmpegMp4Options {
+      overwrite,
+      codec,
+      preset,
+      crf,
+      pix_fmt
+    }
+  );
+  cmd.args(args);
+
+  tracing::info!(
+    ffmpeg = %ffmpeg.display(),
+    frames = %frames_dir.display(),
+    out = %out_mp4.display(),
+    "encoding mp4 via ffmpeg"
+  );
+
+  let out = cmd.output().with_context(
+    || {
+      format!(
+        "failed to run ffmpeg at {}",
+        ffmpeg.display()
+      )
+    }
+  )?;
+  if !out.status.success() {
+    let stderr =
+      String::from_utf8_lossy(
+        &out.stderr
+      );
+    anyhow::bail!(
+      "ffmpeg encoding failed (status \
+       {}): {}",
+      out.status,
+      stderr
+    );
+  }
+  Ok(())
 }
 
 fn load_config_or_fail_fast(

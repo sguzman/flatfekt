@@ -2860,6 +2860,7 @@ dependencies = [
  "flatfekt-runtime",
  "flatfekt-schema",
  "pollster",
+ "serde_json",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",

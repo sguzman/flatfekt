@@ -173,8 +173,38 @@ pub struct ExportBakeConfig {
 #[derive(
   Debug, Clone, Deserialize, Default,
 )]
+pub struct ExportFramesConfig {
+  pub output_root: Option<PathBuf>,
+  pub default_fps: Option<f32>,
+  pub default_duration_secs:
+    Option<f32>,
+  pub width: Option<u32>,
+  pub height: Option<u32>,
+  pub window_visible: Option<bool>,
+  pub overwrite: Option<bool>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
+pub struct ExportVideoConfig {
+  pub ffmpeg_path: Option<PathBuf>,
+  pub codec:       Option<String>,
+  pub preset:      Option<String>,
+  pub crf:         Option<u32>,
+  pub pix_fmt:     Option<String>,
+  pub overwrite:   Option<bool>,
+  pub keep_frames: Option<bool>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
 pub struct ExportConfig {
-  pub bake: Option<ExportBakeConfig>
+  pub bake:   Option<ExportBakeConfig>,
+  pub frames:
+    Option<ExportFramesConfig>,
+  pub video:  Option<ExportVideoConfig>
 }
 
 #[derive(
@@ -705,6 +735,143 @@ impl RootConfig {
       }
     }
 
+    if let Some(export) = &self.export {
+      if let Some(bake) = &export.bake {
+        if let Some(algo) =
+          bake.hash_algorithm.as_deref()
+        {
+          if algo != "xxhash64" {
+            return Err(
+              ConfigError::Validate(
+                format!(
+                  "unsupported \
+                   export.bake.\
+                   hash_algorithm \
+                   {:?}; expected \
+                   \"xxhash64\"",
+                  algo
+                )
+              )
+            );
+          }
+        }
+      }
+
+      if let Some(frames) =
+        &export.frames
+      {
+        if let Some(fps) =
+          frames.default_fps
+        {
+          if !fps.is_finite()
+            || fps <= 0.0
+          {
+            return Err(
+              ConfigError::Validate(
+                "export.frames.\
+                 default_fps must be \
+                 finite and > 0"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(dur) =
+          frames.default_duration_secs
+        {
+          if !dur.is_finite()
+            || dur <= 0.0
+          {
+            return Err(
+              ConfigError::Validate(
+                "export.frames.\
+                 default_duration_secs \
+                 must be finite and > \
+                 0"
+                .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(w) = frames.width {
+          if w == 0 {
+            return Err(
+              ConfigError::Validate(
+                "export.frames.width \
+                 must be >= 1"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(h) = frames.height {
+          if h == 0 {
+            return Err(
+              ConfigError::Validate(
+                "export.frames.height \
+                 must be >= 1"
+                  .to_owned()
+              )
+            );
+          }
+        }
+      }
+
+      if let Some(video) = &export.video
+      {
+        if let Some(codec) =
+          video.codec.as_deref()
+        {
+          if codec.trim().is_empty() {
+            return Err(
+              ConfigError::Validate(
+                "export.video.codec \
+                 must not be empty"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(preset) =
+          video.preset.as_deref()
+        {
+          if preset.trim().is_empty() {
+            return Err(
+              ConfigError::Validate(
+                "export.video.preset \
+                 must not be empty"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(pix) =
+          video.pix_fmt.as_deref()
+        {
+          if pix.trim().is_empty() {
+            return Err(
+              ConfigError::Validate(
+                "export.video.pix_fmt \
+                 must not be empty"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(crf) = video.crf {
+          if crf > 63 {
+            return Err(
+              ConfigError::Validate(
+                "export.video.crf \
+                 must be <= 63"
+                  .to_owned()
+              )
+            );
+          }
+        }
+      }
+    }
+
     Ok(())
   }
 }
@@ -716,6 +883,52 @@ impl RootConfig {
       .as_ref()
       .and_then(|a| a.mode.as_deref())
       .unwrap_or("dev")
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn validate_rejects_zero_export_fps()
+  {
+    let cfg: RootConfig =
+      toml::from_str(
+        r#"
+[export.frames]
+default_fps = 0.0
+"#
+      )
+      .unwrap();
+    let err =
+      cfg.validate().unwrap_err();
+    let msg = err.to_string();
+    assert!(
+      msg.contains(
+        "export.frames.default_fps"
+      ),
+      "unexpected error: {msg}"
+    );
+  }
+
+  #[test]
+  fn validate_rejects_bad_crf() {
+    let cfg: RootConfig =
+      toml::from_str(
+        r#"
+[export.video]
+crf = 99
+"#
+      )
+      .unwrap();
+    let err =
+      cfg.validate().unwrap_err();
+    let msg = err.to_string();
+    assert!(
+      msg.contains("export.video.crf"),
+      "unexpected error: {msg}"
+    );
   }
 }
 
@@ -1114,6 +1327,178 @@ impl RootConfig {
       .and_then(|e| e.bake.as_ref())
       .and_then(|b| b.copy_assets)
       .unwrap_or(true)
+  }
+
+  pub fn export_frames_output_root(
+    &self
+  ) -> PathBuf {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.frames.as_ref())
+      .and_then(|f| {
+        f.output_root.clone()
+      })
+      .unwrap_or_else(|| {
+        PathBuf::from(
+          ".cache/flatfekt/scene"
+        )
+      })
+  }
+
+  pub fn export_frames_default_fps(
+    &self
+  ) -> f32 {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.frames.as_ref())
+      .and_then(|f| f.default_fps)
+      .unwrap_or(60.0)
+  }
+
+  pub fn export_frames_default_duration_secs(
+    &self
+  ) -> f32 {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.frames.as_ref())
+      .and_then(|f| {
+        f.default_duration_secs
+      })
+      .unwrap_or(10.0)
+  }
+
+  pub fn export_frames_width(
+    &self
+  ) -> u32 {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.frames.as_ref())
+      .and_then(|f| f.width)
+      .unwrap_or(1920)
+  }
+
+  pub fn export_frames_height(
+    &self
+  ) -> u32 {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.frames.as_ref())
+      .and_then(|f| f.height)
+      .unwrap_or(1080)
+  }
+
+  pub fn export_frames_window_visible(
+    &self
+  ) -> bool {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.frames.as_ref())
+      .and_then(|f| f.window_visible)
+      .unwrap_or(false)
+  }
+
+  pub fn export_frames_overwrite(
+    &self
+  ) -> bool {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.frames.as_ref())
+      .and_then(|f| f.overwrite)
+      .unwrap_or(false)
+  }
+
+  pub fn export_video_ffmpeg_path(
+    &self
+  ) -> PathBuf {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.video.as_ref())
+      .and_then(|v| {
+        v.ffmpeg_path.clone()
+      })
+      .unwrap_or_else(|| {
+        PathBuf::from("ffmpeg")
+      })
+  }
+
+  pub fn export_video_codec(
+    &self
+  ) -> String {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.video.as_ref())
+      .and_then(|v| v.codec.clone())
+      .unwrap_or_else(|| {
+        "libx264".to_owned()
+      })
+  }
+
+  pub fn export_video_preset(
+    &self
+  ) -> String {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.video.as_ref())
+      .and_then(|v| v.preset.clone())
+      .unwrap_or_else(|| {
+        "medium".to_owned()
+      })
+  }
+
+  pub fn export_video_crf(
+    &self
+  ) -> u32 {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.video.as_ref())
+      .and_then(|v| v.crf)
+      .unwrap_or(18)
+  }
+
+  pub fn export_video_pix_fmt(
+    &self
+  ) -> String {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.video.as_ref())
+      .and_then(|v| v.pix_fmt.clone())
+      .unwrap_or_else(|| {
+        "yuv420p".to_owned()
+      })
+  }
+
+  pub fn export_video_overwrite(
+    &self
+  ) -> bool {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.video.as_ref())
+      .and_then(|v| v.overwrite)
+      .unwrap_or(false)
+  }
+
+  pub fn export_video_keep_frames(
+    &self
+  ) -> bool {
+    self
+      .export
+      .as_ref()
+      .and_then(|e| e.video.as_ref())
+      .and_then(|v| v.keep_frames)
+      .unwrap_or(false)
   }
 
   pub fn runtime_playback_prefer_baked_over_simulation(

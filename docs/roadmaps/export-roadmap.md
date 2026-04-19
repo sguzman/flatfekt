@@ -18,12 +18,17 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 - [x] Add CLI command to trigger screenshot capture (single-shot)
 
 ### M1 — frame sequence export (motion graphics)
-- [x] Add “fixed dt render” mode for deterministic frame stepping
-- [x] Export frame sequences (png sequence) for a given duration
+- [x] Add frame export job runner (deterministic fixed-dt stepping + per-frame capture)
+- [x] Add `flatfekt export-frames <scene.toml|bake_dir|bake.json>` (auto-bake when given `scene.toml`)
+- [x] Add `[export.frames]` control-pane knobs (output_root, width/height, fps/duration defaults, window_visible, overwrite)
+- [x] Add export-frames manifest output (fps/duration/frame_count + source metadata)
+- [x] Add tests for export path building + config validation (no-GPU)
 
 ### M1b — video export (optional)
-- [x] Add video encoding pipeline (feature-gated) for exporting to a common container (e.g., mp4)
-- [x] Add config knobs for encoder settings (fps, bitrate, pixel format) and fail-fast validation
+- [x] Add MP4 encoding pipeline via `ffmpeg` CLI (fail fast if missing/unusable)
+- [x] Add `flatfekt export-mp4 <scene.toml|bake_dir|bake.json>` (exports frames then encodes mp4)
+- [x] Add `[export.video]` control-pane knobs (ffmpeg path, codec, preset, crf/bitrate, pix_fmt, keep_frames)
+- [x] Add tests for ffmpeg argument building + validation (no-GPU)
 
 ### M2 — replay
 - [x] Add input/timeline event recording format (timestamped)
