@@ -28,6 +28,8 @@ tracing = "0.1.44"
 tracing-appender = "0.2.4"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 tempfile = "3.27.0"
+assert_cmd = "2.2.1"
+predicates = "3.1.4"
 wgpu = "29.0.1"
 xxhash-rust = { version = "0.8.15", features = ["xxh64"] }
 

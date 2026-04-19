@@ -29,6 +29,8 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 - [x] Add `flatfekt export-mp4 <scene.toml|bake_dir|bake.json>` (exports frames then encodes mp4)
 - [x] Add `[export.video]` control-pane knobs (ffmpeg path, codec, preset, crf/bitrate, pix_fmt, keep_frames)
 - [x] Add tests for ffmpeg argument building + validation (no-GPU)
+- [x] Add feature-gated GPU export integration smoke test (bake + export 0.1s to temp dir)
+- [x] Improve export CLI output (paths + summary) and support `--out <dir>` for `export-mp4`
 
 ### M2 — replay
 - [x] Add input/timeline event recording format (timestamped)

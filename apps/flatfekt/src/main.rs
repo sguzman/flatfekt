@@ -409,6 +409,19 @@ fn main() -> anyhow::Result<()> {
         "{}",
         res.output_dir.display()
       );
+      eprintln!(
+        "frames: {}\nmanifest: \
+         {}\nfps: {:.3}\nduration: \
+         {:.3}s\nresolution: \
+         {}x{}\nframe_count: {}",
+        res.frames_dir.display(),
+        res.manifest_path.display(),
+        res.fps,
+        res.duration_secs,
+        res.width,
+        res.height,
+        res.frame_count
+      );
       Ok(())
     }
     | Command::ExportMp4 {
@@ -489,9 +502,14 @@ struct ExportRequest {
 
 #[derive(Debug, Clone)]
 struct ExportFramesResult {
-  output_dir: PathBuf,
-  frames_dir: PathBuf,
-  fps:        f32
+  output_dir:    PathBuf,
+  frames_dir:    PathBuf,
+  manifest_path: PathBuf,
+  fps:           f32,
+  duration_secs: f32,
+  width:         u32,
+  height:        u32,
+  frame_count:   u64
 }
 
 fn run_export_frames(
@@ -578,6 +596,10 @@ fn run_export_frames(
     req.height.unwrap_or_else(|| {
       cfg.export_frames_height()
     });
+  let frame_count =
+    (duration_secs * fps)
+      .round()
+      .max(1.0) as u64;
 
   let manifest =
     export::ExportManifest {
@@ -646,7 +668,12 @@ fn run_export_frames(
   Ok(ExportFramesResult {
     output_dir: paths.dir,
     frames_dir: paths.frames_dir,
-    fps
+    manifest_path: paths.manifest,
+    fps,
+    duration_secs,
+    width,
+    height,
+    frame_count
   })
 }
 
@@ -661,12 +688,17 @@ fn run_export_mp4(
   )
   .context("export frames for mp4")?;
 
-  let out_mp4 =
-    out.unwrap_or_else(|| {
+  let out_mp4 = match out {
+    | None => {
       frames
         .output_dir
         .join("video.mp4")
-    });
+    }
+    | Some(p) if p.is_dir() => {
+      p.join("video.mp4")
+    }
+    | Some(p) => p
+  };
 
   let ffmpeg_path =
     cfg.export_video_ffmpeg_path();
@@ -698,6 +730,15 @@ fn run_export_mp4(
       &frames.frames_dir
     );
   }
+
+  eprintln!(
+    "export_dir: {}\nframes: \
+     {}\nmanifest: {}\nmp4: {}",
+    frames.output_dir.display(),
+    frames.frames_dir.display(),
+    frames.manifest_path.display(),
+    out_mp4.display()
+  );
 
   Ok(out_mp4)
 }
