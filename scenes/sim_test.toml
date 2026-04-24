@@ -1,0 +1,16 @@
+[scene]
+schema_version = "0.1"
+
+[scene.simulation]
+gravity = [0.0, -9.8]
+bounds = [-100.0, -100.0, 100.0, 100.0]
+
+[[scene.entities]]
+id = "emitter"
+transform = { x = -50.0, y = 50.0 }
+particles = { emission_rate = 10.0, lifetime = 2.0, velocity_min = [-10.0, 10.0], velocity_max = [10.0, 20.0], max_particles = 100 }
+
+[[scene.entities]]
+id = "life_grid"
+transform = { x = 0.0, y = 0.0 }
+grid = { width = 32, height = 32, cell_size = 4.0, rule = "conway" }

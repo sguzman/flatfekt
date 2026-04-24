@@ -64,8 +64,10 @@ pub fn render_sort_key(
 )]
 pub enum RenderKind {
   Shape  = 0,
-  Sprite = 1,
-  Text   = 2
+  Sprite,
+  Text,
+  Particles,
+  Grid
 }
 
 fn fxhash64(bytes: &[u8]) -> u64 {
@@ -308,6 +310,8 @@ impl Plugin for FlatfektRuntimePlugin {
           simulation::gravity_system,
           simulation::bounds_collision_system,
           simulation::entity_collision_system,
+          simulation::particle_system_tick,
+          simulation::grid_tick,
         )
           .in_set(FlatfektSet::SimTick)
           .after(simulation::simulation_driver)
@@ -770,38 +774,72 @@ fn instantiate_scene(
 
     if let Some(shape) = &ent.shape {
       plan.push(SpawnOp {
-        id: &ent.id,
-        kind: RenderKind::Shape,
+        id:        &ent.id,
+        kind:      RenderKind::Shape,
         tf,
-        shape: Some(shape),
-        sprite: None,
-        text: None,
+        shape:     Some(shape),
+        sprite:    None,
+        text:      None,
         physics,
-        collider
+        collider,
+        particles: None,
+        grid:      None
       });
     }
     if let Some(sprite) = &ent.sprite {
       plan.push(SpawnOp {
-        id: &ent.id,
-        kind: RenderKind::Sprite,
+        id:        &ent.id,
+        kind:      RenderKind::Sprite,
         tf,
-        shape: None,
-        sprite: Some(sprite),
-        text: None,
+        shape:     None,
+        sprite:    Some(sprite),
+        text:      None,
         physics,
-        collider
+        collider,
+        particles: None,
+        grid:      None
       });
     }
     if let Some(text) = &ent.text {
       plan.push(SpawnOp {
-        id: &ent.id,
-        kind: RenderKind::Text,
+        id:        &ent.id,
+        kind:      RenderKind::Text,
         tf,
-        shape: None,
-        sprite: None,
-        text: Some(text),
+        shape:     None,
+        sprite:    None,
+        text:      Some(text),
         physics,
-        collider
+        collider,
+        particles: None,
+        grid:      None
+      });
+    }
+    if let Some(particles) = &ent.particles {
+      plan.push(SpawnOp {
+        id:        &ent.id,
+        kind:      RenderKind::Particles,
+        tf,
+        shape:     None,
+        sprite:    None,
+        text:      None,
+        physics,
+        collider,
+        particles: Some(particles),
+        grid:      None
+      });
+    }
+    if let Some(grid) = &ent.grid {
+      plan.push(SpawnOp {
+        id:        &ent.id,
+        kind:      RenderKind::Grid,
+        tf,
+        shape:     None,
+        sprite:    None,
+        text:      None,
+        physics,
+        collider,
+        particles: None,
+        grid:      Some(grid)
       });
     }
   }
@@ -859,6 +897,20 @@ fn instantiate_scene(
           op.tf
         ))
       }
+      | RenderKind::Particles => {
+        Some(spawn_particles(
+          &mut commands,
+          op.particles.unwrap(),
+          op.tf
+        ))
+      }
+      | RenderKind::Grid => {
+        Some(spawn_grid(
+          &mut commands,
+          op.grid.unwrap(),
+          op.tf
+        ))
+      }
     };
 
     if let Some(e) = e {
@@ -890,6 +942,12 @@ struct SpawnOp<'a> {
   >,
   collider: Option<
     &'a flatfekt_schema::ColliderSpec
+  >,
+  particles: Option<
+    &'a flatfekt_schema::ParticleSystemSpec
+  >,
+  grid: Option<
+    &'a flatfekt_schema::GridSpec
   >
 }
 
@@ -1115,6 +1173,68 @@ fn spawn_text(
   }
 
   entity.id()
+}
+
+fn spawn_particles(
+  commands: &mut Commands,
+  spec: &flatfekt_schema::ParticleSystemSpec,
+  tf: Transform
+) -> Entity {
+  commands
+    .spawn((
+      simulation::ParticleSystem {
+        emission_rate: spec.emission_rate,
+        lifetime:      spec.lifetime,
+        velocity_min:  Vec2::from(
+          spec.velocity_min
+        ),
+        velocity_max:  Vec2::from(
+          spec.velocity_max
+        ),
+        max_particles: spec.max_particles,
+        accumulator:   0.0
+      },
+      tf,
+      Visibility::Visible,
+      InheritedVisibility::VISIBLE
+    ))
+    .id()
+}
+
+fn spawn_grid(
+  commands: &mut Commands,
+  spec: &flatfekt_schema::GridSpec,
+  tf: Transform
+) -> Entity {
+  let rule = match spec.rule.as_str() {
+    | "conway" => simulation::GridRule::Conway,
+    | _ => simulation::GridRule::Conway
+  };
+
+  let cells = if let Some(_initial) =
+    &spec.initial_state
+  {
+    // Simple hex decode for now? Or just zeros.
+    vec![0; (spec.width * spec.height) as usize]
+  } else {
+    vec![0; (spec.width * spec.height) as usize]
+  };
+
+  commands
+    .spawn((
+      simulation::Grid {
+        width:      spec.width,
+        height:     spec.height,
+        cell_size:  spec.cell_size,
+        next_cells: cells.clone(),
+        cells,
+        rule
+      },
+      tf,
+      Visibility::Visible,
+      InheritedVisibility::VISIBLE
+    ))
+    .id()
 }
 
 fn spawn_shape(
@@ -2155,9 +2275,15 @@ pub fn run_bake(
       )
     )
   ));
-  app.add_plugins(
-    bevy::transform::TransformPlugin
-  );
+  app.add_plugins((
+    bevy::transform::TransformPlugin,
+    bevy::asset::AssetPlugin::default(),
+    bevy::input::InputPlugin,
+    bevy::mesh::MeshPlugin,
+    bevy::sprite::SpritePlugin,
+    bevy::text::TextPlugin,
+    bevy::gizmos::GizmoPlugin,
+  ));
 
   app.insert_resource(ConfigRes(cfg));
   app.insert_resource(ScenePathRes(
@@ -2186,6 +2312,8 @@ pub fn run_bake(
     .init_resource::<simulation::SimulationClock>()
     .init_resource::<simulation::SimulationSeed>()
     .init_resource::<simulation::SimRegionRes>()
+    .init_resource::<animation::TimelinePlan>()
+    .init_asset::<ColorMaterial>()
     .add_systems(
       Startup,
       simulation::init_simulation,
@@ -2205,6 +2333,8 @@ pub fn run_bake(
         simulation::gravity_system,
         simulation::bounds_collision_system,
         simulation::entity_collision_system,
+        simulation::particle_system_tick,
+        simulation::grid_tick,
       )
         .in_set(FlatfektSet::SimTick)
         .after(simulation::simulation_driver),

@@ -29,8 +29,8 @@ Own the engine’s “physics/rules” evolution loop: fixed timesteps, physics 
 - [x] Add constraints (bounds, springs) driven by config
 
 ### M3 — advanced simulation primitives
-- [ ] Add particle system stepping (not rendering; just state evolution)
-- [ ] Add cellular automata grid stepping (configurable rules)
+- [x] Add particle system stepping (not rendering; just state evolution)
+- [x] Add cellular automata grid stepping (configurable rules)
 
 ## Grouped tasks
 

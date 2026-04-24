@@ -227,6 +227,36 @@ pub enum Collider {
   Rect { size: Vec2 }
 }
 
+#[derive(Component, Debug, Clone)]
+pub struct ParticleSystem {
+  pub emission_rate: f32,
+  pub lifetime:      f32,
+  pub velocity_min:  Vec2,
+  pub velocity_max:  Vec2,
+  pub max_particles: u32,
+  pub accumulator:   f32,
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct Particle {
+  pub lifetime_left: f32,
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct Grid {
+  pub width:         u32,
+  pub height:        u32,
+  pub cell_size:     f32,
+  pub cells:         Vec<u8>,
+  pub next_cells:    Vec<u8>,
+  pub rule:          GridRule,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GridRule {
+  Conway,
+}
+
 #[derive(
   Resource, Debug, Clone, Default,
 )]
@@ -731,6 +761,134 @@ pub fn entity_collision_system(
             - 2.0 * dot * normal)
             * body.restitution;
         }
+      }
+    }
+  }
+}
+
+pub fn particle_system_tick(
+  mut ticks: MessageReader<SimTick>,
+  mut seed: ResMut<SimulationSeed>,
+  mut query: Query<(
+    Entity,
+    &mut ParticleSystem,
+    &GlobalTransform
+  )>,
+  mut particles: Query<(
+    Entity,
+    &mut Particle,
+    &mut PhysicsBody
+  )>,
+  mut commands: Commands
+) {
+  for tick in ticks.read() {
+    let dt = tick.dt_secs;
+
+    for (entity, mut p, _body) in
+      particles.iter_mut()
+    {
+      p.lifetime_left -= dt;
+      if p.lifetime_left <= 0.0 {
+        commands.entity(entity).despawn();
+      }
+    }
+
+    for (parent, mut sys, transform) in
+      query.iter_mut()
+    {
+      sys.accumulator +=
+        sys.emission_rate * dt;
+      let count =
+        sys.accumulator.floor() as u32;
+      sys.accumulator -= count as f32;
+
+      let pos = transform.translation().xy();
+
+      for _ in 0..count {
+        let vx = sys.velocity_min.x
+          + (sys.velocity_max.x
+            - sys.velocity_min.x)
+            * (seed.next_u64() as f32
+              / u64::MAX as f32);
+        let vy = sys.velocity_min.y
+          + (sys.velocity_max.y
+            - sys.velocity_min.y)
+            * (seed.next_u64() as f32
+              / u64::MAX as f32);
+
+        let particle = commands
+          .spawn((
+            Particle {
+              lifetime_left: sys.lifetime
+            },
+            PhysicsBody {
+              velocity: Vec2::new(vx, vy),
+              ..default()
+            },
+            Transform::from_translation(
+              pos.extend(0.1)
+            ),
+            Visibility::Visible,
+            InheritedVisibility::VISIBLE
+          ))
+          .id();
+        commands.entity(parent).add_child(particle);
+      }
+    }
+  }
+}
+
+pub fn grid_tick(
+  mut ticks: MessageReader<SimTick>,
+  mut query: Query<&mut Grid>
+) {
+  for _tick in ticks.read() {
+    for mut grid in query.iter_mut() {
+      if grid.rule == GridRule::Conway {
+        let w = grid.width as i32;
+        let h = grid.height as i32;
+
+        for y in 0..h {
+          for x in 0..w {
+            let mut neighbors = 0;
+            for dy in -1..=1 {
+              for dx in -1..=1 {
+                if dx == 0 && dy == 0 {
+                  continue;
+                }
+                let nx = x + dx;
+                let ny = y + dy;
+                if nx >= 0
+                  && nx < w
+                  && ny >= 0
+                  && ny < h
+                {
+                  if grid.cells
+                    [(ny * w + nx) as usize]
+                    > 0
+                  {
+                    neighbors += 1;
+                  }
+                }
+              }
+            }
+
+            let idx = (y * w + x) as usize;
+            let alive = grid.cells[idx] > 0;
+            let next_alive = if alive {
+              neighbors == 2 || neighbors == 3
+            } else {
+              neighbors == 3
+            };
+            grid.next_cells[idx] =
+              if next_alive { 1 } else { 0 };
+          }
+        }
+        let grid = &mut *grid;
+        std::mem::swap(
+          &mut grid.cells,
+          &mut grid.next_cells
+        );
       }
     }
   }

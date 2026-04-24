@@ -22,7 +22,8 @@ use crate::{
   EntityMap,
   ScenePathRes,
   SceneRes,
-  SpawnedEntities
+  SpawnedEntities,
+  simulation
 };
 
 pub const BAKE_JSON_FILE: &str =
@@ -1057,6 +1058,43 @@ pub fn instantiate_scene_headless_for_bake(
         }
         e.insert(s);
       }
+    } else if let Some(particles) =
+      &ent.particles
+    {
+      e.insert(simulation::ParticleSystem {
+        emission_rate: particles
+          .emission_rate,
+        lifetime:      particles.lifetime,
+        velocity_min:  Vec2::from(
+          particles.velocity_min
+        ),
+        velocity_max:  Vec2::from(
+          particles.velocity_max
+        ),
+        max_particles: particles
+          .max_particles,
+        accumulator:   0.0
+      });
+    } else if let Some(grid) = &ent.grid {
+      let rule = match grid.rule.as_str()
+      {
+        | "conway" =>
+          simulation::GridRule::Conway,
+        | _ => simulation::GridRule::Conway
+      };
+      let cells = vec![
+        0;
+        (grid.width * grid.height)
+          as usize
+      ];
+      e.insert(simulation::Grid {
+        width:      grid.width,
+        height:     grid.height,
+        cell_size:  grid.cell_size,
+        next_cells: cells.clone(),
+        cells,
+        rule
+      });
     }
 
     // Physics + collider.

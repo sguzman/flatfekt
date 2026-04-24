@@ -366,7 +366,8 @@ pub struct EntitySpec {
   pub interaction:
     Option<EntityInteractionSpec>,
   pub agent:       Option<AgentSpec>,
-  pub script: Option<ScriptHookSpec>
+  pub script: Option<ScriptHookSpec>,
+  pub grid: Option<GridSpec>
 }
 
 #[derive(
@@ -398,7 +399,24 @@ pub struct AgentSpec {
 #[serde(deny_unknown_fields)]
 pub struct ScriptHookSpec {
   pub on_spawn: Option<String>,
-  pub on_tick:  Option<String>
+  pub on_tick:  Option<String>,
+  pub on_update: Option<String>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct GridSpec {
+  pub width:         u32,
+  pub height:        u32,
+  pub cell_size:     f32,
+  pub rule:          String,
+  pub initial_state: Option<String>
 }
 
 #[derive(
@@ -634,7 +652,8 @@ pub struct ParticleSystemSpec {
   pub emission_rate: f32,
   pub lifetime:      f32,
   pub velocity_min:  [f32; 2],
-  pub velocity_max:  [f32; 2]
+  pub velocity_max:  [f32; 2],
+  pub max_particles: u32
 }
 
 impl SceneFile {
@@ -964,6 +983,8 @@ impl Scene {
       if entity.sprite.is_none()
         && entity.text.is_none()
         && entity.shape.is_none()
+        && entity.particles.is_none()
+        && entity.grid.is_none()
       {
         return Err(
           SceneError::Validate(
@@ -971,7 +992,8 @@ impl Scene {
               "scene.entities[{idx}] \
                ({:?}) must define at \
                least one of [sprite, \
-               text, shape]",
+               text, shape, particles, \
+               grid]",
               entity.id
             )
           )
