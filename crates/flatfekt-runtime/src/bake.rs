@@ -879,7 +879,8 @@ fn run_bake_app(
     .init_resource::<crate::animation::TimelinePlan>()
     .init_resource::<crate::simulation::SimulationClock>()
     .init_resource::<crate::simulation::SimulationSeed>()
-    .init_resource::<crate::simulation::SimRegionRes>();
+    .init_resource::<crate::simulation::SimRegionRes>()
+    .init_resource::<crate::simulation::DeterminismPolicyRes>();
 
   // Startup
   app.add_systems(
@@ -1061,36 +1062,43 @@ pub fn instantiate_scene_headless_for_bake(
     } else if let Some(particles) =
       &ent.particles
     {
-      e.insert(simulation::ParticleSystem {
-        emission_rate: particles
-          .emission_rate,
-        lifetime:      particles.lifetime,
-        velocity_min:  Vec2::from(
-          particles.velocity_min
-        ),
-        velocity_max:  Vec2::from(
-          particles.velocity_max
-        ),
-        max_particles: particles
-          .max_particles,
-        accumulator:   0.0
-      });
-    } else if let Some(grid) = &ent.grid {
-      let rule = match grid.rule.as_str()
-      {
-        | "conway" =>
-          simulation::GridRule::Conway,
-        | _ => simulation::GridRule::Conway
-      };
+      e.insert(
+        simulation::ParticleSystem {
+          emission_rate: particles
+            .emission_rate,
+          lifetime:      particles
+            .lifetime,
+          velocity_min:  Vec2::from(
+            particles.velocity_min
+          ),
+          velocity_max:  Vec2::from(
+            particles.velocity_max
+          ),
+          max_particles: particles
+            .max_particles,
+          accumulator:   0.0
+        }
+      );
+    } else if let Some(grid) = &ent.grid
+    {
+      let rule =
+        match grid.rule.as_str() {
+          | "conway" => {
+            simulation::GridRule::Conway
+          }
+          | _ => {
+            simulation::GridRule::Conway
+          }
+        };
       let cells = vec![
         0;
         (grid.width * grid.height)
           as usize
       ];
       e.insert(simulation::Grid {
-        width:      grid.width,
-        height:     grid.height,
-        cell_size:  grid.cell_size,
+        width: grid.width,
+        height: grid.height,
+        cell_size: grid.cell_size,
         next_cells: cells.clone(),
         cells,
         rule

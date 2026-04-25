@@ -57,6 +57,7 @@ fn simulation_steps_are_deterministic_with_fixed_dt()
     .init_resource::<SimulationClock>()
     .init_resource::<SimulationSeed>()
     .init_resource::<SimRegionRes>()
+    .init_resource::<flatfekt_runtime::simulation::DeterminismPolicyRes>()
     .add_systems(
       Startup,
       init_simulation

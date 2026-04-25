@@ -63,7 +63,7 @@ pub fn render_sort_key(
   Debug, Clone, Copy, PartialEq, Eq,
 )]
 pub enum RenderKind {
-  Shape  = 0,
+  Shape = 0,
   Sprite,
   Text,
   Particles,
@@ -252,6 +252,7 @@ impl Plugin for FlatfektRuntimePlugin {
       .init_resource::<simulation::SimulationClock>()
       .init_resource::<simulation::SimulationSeed>()
       .init_resource::<simulation::SimRegionRes>()
+      .init_resource::<simulation::DeterminismPolicyRes>()
       .add_systems(
         Startup,
         init_timeline_clock
@@ -296,6 +297,11 @@ impl Plugin for FlatfektRuntimePlugin {
         Startup,
         simulation::init_simulation
           .after(init_timeline_clock)
+      )
+      .add_systems(
+        Startup,
+        simulation::enforce_sim_determinism_system
+          .after(simulation::init_simulation)
       )
       .add_systems(
         Update,
@@ -774,72 +780,74 @@ fn instantiate_scene(
 
     if let Some(shape) = &ent.shape {
       plan.push(SpawnOp {
-        id:        &ent.id,
-        kind:      RenderKind::Shape,
+        id: &ent.id,
+        kind: RenderKind::Shape,
         tf,
-        shape:     Some(shape),
-        sprite:    None,
-        text:      None,
+        shape: Some(shape),
+        sprite: None,
+        text: None,
         physics,
         collider,
         particles: None,
-        grid:      None
+        grid: None
       });
     }
     if let Some(sprite) = &ent.sprite {
       plan.push(SpawnOp {
-        id:        &ent.id,
-        kind:      RenderKind::Sprite,
+        id: &ent.id,
+        kind: RenderKind::Sprite,
         tf,
-        shape:     None,
-        sprite:    Some(sprite),
-        text:      None,
+        shape: None,
+        sprite: Some(sprite),
+        text: None,
         physics,
         collider,
         particles: None,
-        grid:      None
+        grid: None
       });
     }
     if let Some(text) = &ent.text {
       plan.push(SpawnOp {
-        id:        &ent.id,
-        kind:      RenderKind::Text,
+        id: &ent.id,
+        kind: RenderKind::Text,
         tf,
-        shape:     None,
-        sprite:    None,
-        text:      Some(text),
+        shape: None,
+        sprite: None,
+        text: Some(text),
         physics,
         collider,
         particles: None,
-        grid:      None
+        grid: None
       });
     }
-    if let Some(particles) = &ent.particles {
+    if let Some(particles) =
+      &ent.particles
+    {
       plan.push(SpawnOp {
-        id:        &ent.id,
-        kind:      RenderKind::Particles,
+        id: &ent.id,
+        kind: RenderKind::Particles,
         tf,
-        shape:     None,
-        sprite:    None,
-        text:      None,
+        shape: None,
+        sprite: None,
+        text: None,
         physics,
         collider,
         particles: Some(particles),
-        grid:      None
+        grid: None
       });
     }
     if let Some(grid) = &ent.grid {
       plan.push(SpawnOp {
-        id:        &ent.id,
-        kind:      RenderKind::Grid,
+        id: &ent.id,
+        kind: RenderKind::Grid,
         tf,
-        shape:     None,
-        sprite:    None,
-        text:      None,
+        shape: None,
+        sprite: None,
+        text: None,
         physics,
         collider,
         particles: None,
-        grid:      Some(grid)
+        grid: Some(grid)
       });
     }
   }
@@ -1183,7 +1191,8 @@ fn spawn_particles(
   commands
     .spawn((
       simulation::ParticleSystem {
-        emission_rate: spec.emission_rate,
+        emission_rate: spec
+          .emission_rate,
         lifetime:      spec.lifetime,
         velocity_min:  Vec2::from(
           spec.velocity_min
@@ -1191,7 +1200,8 @@ fn spawn_particles(
         velocity_max:  Vec2::from(
           spec.velocity_max
         ),
-        max_particles: spec.max_particles,
+        max_particles: spec
+          .max_particles,
         accumulator:   0.0
       },
       tf,
@@ -1207,25 +1217,36 @@ fn spawn_grid(
   tf: Transform
 ) -> Entity {
   let rule = match spec.rule.as_str() {
-    | "conway" => simulation::GridRule::Conway,
+    | "conway" => {
+      simulation::GridRule::Conway
+    }
     | _ => simulation::GridRule::Conway
   };
 
   let cells = if let Some(_initial) =
     &spec.initial_state
   {
-    // Simple hex decode for now? Or just zeros.
-    vec![0; (spec.width * spec.height) as usize]
+    // Simple hex decode for now? Or
+    // just zeros.
+    vec![
+      0;
+      (spec.width * spec.height)
+        as usize
+    ]
   } else {
-    vec![0; (spec.width * spec.height) as usize]
+    vec![
+      0;
+      (spec.width * spec.height)
+        as usize
+    ]
   };
 
   commands
     .spawn((
       simulation::Grid {
-        width:      spec.width,
-        height:     spec.height,
-        cell_size:  spec.cell_size,
+        width: spec.width,
+        height: spec.height,
+        cell_size: spec.cell_size,
         next_cells: cells.clone(),
         cells,
         rule
@@ -2282,7 +2303,7 @@ pub fn run_bake(
     bevy::mesh::MeshPlugin,
     bevy::sprite::SpritePlugin,
     bevy::text::TextPlugin,
-    bevy::gizmos::GizmoPlugin,
+    bevy::gizmos::GizmoPlugin
   ));
 
   app.insert_resource(ConfigRes(cfg));

@@ -6,6 +6,14 @@ use crate::{
   SceneRes
 };
 
+#[derive(
+  Resource, Debug, Clone, Default,
+)]
+pub struct DeterminismPolicyRes {
+  pub enabled: bool,
+  pub notes:   Vec<String>
+}
+
 #[derive(Resource, Debug, Clone)]
 pub struct SimulationSeed(pub u64);
 
@@ -74,7 +82,10 @@ pub fn init_simulation(
   scene: Res<SceneRes>,
   mut clock: ResMut<SimulationClock>,
   mut seed: ResMut<SimulationSeed>,
-  mut region: ResMut<SimRegionRes>
+  mut region: ResMut<SimRegionRes>,
+  mut policy: ResMut<
+    DeterminismPolicyRes
+  >
 ) {
   let cfg = &cfg.0;
   tracing::info!(
@@ -95,6 +106,9 @@ pub fn init_simulation(
   clock.time_scale =
     cfg.simulation_time_scale();
   seed.0 = cfg.simulation_seed();
+  policy.enabled =
+    cfg.simulation_deterministic();
+  policy.notes.clear();
 
   if scene.0.scene.baked.is_some()
     && cfg
@@ -104,6 +118,11 @@ pub fn init_simulation(
     clock.playing = false;
     tracing::info!(
       "simulation disabled (baked playback mode)"
+    );
+    policy.enabled = false;
+    policy.notes.push(
+      "disabled (baked playback mode)"
+        .to_owned()
     );
   }
 
@@ -137,11 +156,56 @@ pub fn init_simulation(
   // (per-scene override wins)
   clock.time_scale = region.time_scale;
 
+  if policy.enabled {
+    policy.notes.push(format!(
+      "fixed_dt_secs={}",
+      clock.dt_secs
+    ));
+    policy.notes.push(format!(
+      "max_catchup_steps={}",
+      clock.max_catchup_steps
+    ));
+    policy
+      .notes
+      .push(format!("seed={}", seed.0));
+    policy.notes.push(format!(
+      "backend={}",
+      cfg.simulation_backend()
+    ));
+    policy.notes.push(
+      "native systems apply in \
+       Entity-sorted order"
+        .to_owned()
+    );
+  }
+
   tracing::info!(
     ?clock,
     ?region,
     seed = seed.0,
+    policy = ?policy,
     "initialized simulation"
+  );
+}
+
+#[instrument(level = "info", skip_all)]
+pub fn enforce_sim_determinism_system(
+  cfg: Res<ConfigRes>,
+  clock: Res<SimulationClock>,
+  seed: Res<SimulationSeed>,
+  policy: Res<DeterminismPolicyRes>
+) {
+  if !cfg.0.simulation_deterministic() {
+    return;
+  }
+
+  tracing::info!(
+    dt_secs = clock.dt_secs,
+    max_catchup_steps = clock.max_catchup_steps,
+    seed = seed.0,
+    backend = %cfg.0.simulation_backend(),
+    notes = ?policy.notes,
+    "deterministic simulation mode enabled"
   );
 }
 
@@ -234,27 +298,29 @@ pub struct ParticleSystem {
   pub velocity_min:  Vec2,
   pub velocity_max:  Vec2,
   pub max_particles: u32,
-  pub accumulator:   f32,
+  pub accumulator:   f32
 }
 
 #[derive(Component, Debug, Clone)]
 pub struct Particle {
-  pub lifetime_left: f32,
+  pub lifetime_left: f32
 }
 
 #[derive(Component, Debug, Clone)]
 pub struct Grid {
-  pub width:         u32,
-  pub height:        u32,
-  pub cell_size:     f32,
-  pub cells:         Vec<u8>,
-  pub next_cells:    Vec<u8>,
-  pub rule:          GridRule,
+  pub width:      u32,
+  pub height:     u32,
+  pub cell_size:  f32,
+  pub cells:      Vec<u8>,
+  pub next_cells: Vec<u8>,
+  pub rule:       GridRule
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+  Debug, Clone, Copy, PartialEq, Eq,
+)]
 pub enum GridRule {
-  Conway,
+  Conway
 }
 
 #[derive(
@@ -278,7 +344,9 @@ pub struct EntityHealth {
 pub fn gravity_system(
   mut ticks: MessageReader<SimTick>,
   region: Res<SimRegionRes>,
+  cfg: Res<ConfigRes>,
   mut query: Query<(
+    Entity,
     &mut PhysicsBody,
     &mut Transform
   )>
@@ -286,15 +354,44 @@ pub fn gravity_system(
   for tick in ticks.read() {
     let dt = tick.dt_secs;
     let gravity = region.gravity;
-    for (mut body, mut tf) in
-      query.iter_mut()
+    if cfg.0.simulation_deterministic()
     {
-      if body.fixed {
-        continue;
+      let mut entities: Vec<Entity> =
+        query
+          .iter()
+          .map(|(e, _, _)| e)
+          .collect();
+      entities.sort_unstable_by_key(
+        |e| e.index()
+      );
+      for e in entities {
+        if let Ok((
+          _e,
+          mut body,
+          mut tf
+        )) = query.get_mut(e)
+        {
+          if body.fixed {
+            continue;
+          }
+          body.velocity += gravity * dt;
+          tf.translation +=
+            body.velocity.extend(0.0)
+              * dt;
+        }
       }
-      body.velocity += gravity * dt;
-      tf.translation +=
-        body.velocity.extend(0.0) * dt;
+    } else {
+      for (_e, mut body, mut tf) in
+        query.iter_mut()
+      {
+        if body.fixed {
+          continue;
+        }
+        body.velocity += gravity * dt;
+        tf.translation +=
+          body.velocity.extend(0.0)
+            * dt;
+      }
     }
   }
 }
@@ -303,7 +400,9 @@ pub fn gravity_system(
 pub fn bounds_collision_system(
   mut ticks: MessageReader<SimTick>,
   region: Res<SimRegionRes>,
+  cfg: Res<ConfigRes>,
   mut query: Query<(
+    Entity,
     &mut PhysicsBody,
     &mut Transform,
     &Collider
@@ -315,111 +414,167 @@ pub fn bounds_collision_system(
   };
 
   for _ in ticks.read() {
-    for (mut body, mut tf, collider) in
-      query.iter_mut()
+    let iter: Vec<Entity> = if cfg
+      .0
+      .simulation_deterministic()
     {
-      if body.fixed {
-        continue;
+      let mut entities: Vec<Entity> =
+        query
+          .iter()
+          .map(|(e, _, _, _)| e)
+          .collect();
+      entities.sort_unstable_by_key(
+        |e| e.index()
+      );
+      entities
+    } else {
+      Vec::new()
+    };
+
+    let apply =
+      |body: &mut PhysicsBody,
+       tf: &mut Transform,
+       collider: &Collider| {
+        if body.fixed {
+          return;
+        }
+
+        match collider {
+          | Collider::Circle {
+            radius
+          } => {
+            let pos =
+              tf.translation.xy();
+            let mut new_pos = pos;
+            let mut hit = false;
+
+            if pos.x - radius
+              < bounds.min.x
+            {
+              new_pos.x =
+                bounds.min.x + radius;
+              body.velocity.x *=
+                -body.restitution;
+              hit = true;
+            } else if pos.x + radius
+              > bounds.max.x
+            {
+              new_pos.x =
+                bounds.max.x - radius;
+              body.velocity.x *=
+                -body.restitution;
+              hit = true;
+            }
+
+            if pos.y - radius
+              < bounds.min.y
+            {
+              new_pos.y =
+                bounds.min.y + radius;
+              body.velocity.y *=
+                -body.restitution;
+              hit = true;
+            } else if pos.y + radius
+              > bounds.max.y
+            {
+              new_pos.y =
+                bounds.max.y - radius;
+              body.velocity.y *=
+                -body.restitution;
+              hit = true;
+            }
+
+            if hit {
+              tf.translation = new_pos
+                .extend(
+                  tf.translation.z
+                );
+            }
+          }
+          | Collider::Rect {
+            size
+          } => {
+            let pos =
+              tf.translation.xy();
+            let half_size = *size * 0.5;
+            let mut new_pos = pos;
+            let mut hit = false;
+
+            if pos.x - half_size.x
+              < bounds.min.x
+            {
+              new_pos.x = bounds.min.x
+                + half_size.x;
+              body.velocity.x *=
+                -body.restitution;
+              hit = true;
+            } else if pos.x
+              + half_size.x
+              > bounds.max.x
+            {
+              new_pos.x = bounds.max.x
+                - half_size.x;
+              body.velocity.x *=
+                -body.restitution;
+              hit = true;
+            }
+
+            if pos.y - half_size.y
+              < bounds.min.y
+            {
+              new_pos.y = bounds.min.y
+                + half_size.y;
+              body.velocity.y *=
+                -body.restitution;
+              hit = true;
+            } else if pos.y
+              + half_size.y
+              > bounds.max.y
+            {
+              new_pos.y = bounds.max.y
+                - half_size.y;
+              body.velocity.y *=
+                -body.restitution;
+              hit = true;
+            }
+
+            if hit {
+              tf.translation = new_pos
+                .extend(
+                  tf.translation.z
+                );
+            }
+          }
+        }
+      };
+
+    if cfg.0.simulation_deterministic()
+    {
+      for e in iter {
+        if let Ok((
+          _e,
+          mut body,
+          mut tf,
+          collider
+        )) = query.get_mut(e)
+        {
+          apply(
+            &mut body, &mut tf,
+            collider
+          );
+        }
       }
-
-      match collider {
-        | Collider::Circle {
-          radius
-        } => {
-          let pos = tf.translation.xy();
-          let mut new_pos = pos;
-          let mut hit = false;
-
-          if pos.x - radius
-            < bounds.min.x
-          {
-            new_pos.x =
-              bounds.min.x + radius;
-            body.velocity.x *=
-              -body.restitution;
-            hit = true;
-          } else if pos.x + radius
-            > bounds.max.x
-          {
-            new_pos.x =
-              bounds.max.x - radius;
-            body.velocity.x *=
-              -body.restitution;
-            hit = true;
-          }
-
-          if pos.y - radius
-            < bounds.min.y
-          {
-            new_pos.y =
-              bounds.min.y + radius;
-            body.velocity.y *=
-              -body.restitution;
-            hit = true;
-          } else if pos.y + radius
-            > bounds.max.y
-          {
-            new_pos.y =
-              bounds.max.y - radius;
-            body.velocity.y *=
-              -body.restitution;
-            hit = true;
-          }
-
-          if hit {
-            tf.translation = new_pos
-              .extend(tf.translation.z);
-          }
-        }
-        | Collider::Rect {
-          size
-        } => {
-          let pos = tf.translation.xy();
-          let half_size = *size * 0.5;
-          let mut new_pos = pos;
-          let mut hit = false;
-
-          if pos.x - half_size.x
-            < bounds.min.x
-          {
-            new_pos.x = bounds.min.x
-              + half_size.x;
-            body.velocity.x *=
-              -body.restitution;
-            hit = true;
-          } else if pos.x + half_size.x
-            > bounds.max.x
-          {
-            new_pos.x = bounds.max.x
-              - half_size.x;
-            body.velocity.x *=
-              -body.restitution;
-            hit = true;
-          }
-
-          if pos.y - half_size.y
-            < bounds.min.y
-          {
-            new_pos.y = bounds.min.y
-              + half_size.y;
-            body.velocity.y *=
-              -body.restitution;
-            hit = true;
-          } else if pos.y + half_size.y
-            > bounds.max.y
-          {
-            new_pos.y = bounds.max.y
-              - half_size.y;
-            body.velocity.y *=
-              -body.restitution;
-            hit = true;
-          }
-
-          if hit {
-            tf.translation = new_pos
-              .extend(tf.translation.z);
-          }
-        }
+    } else {
+      for (
+        _e,
+        mut body,
+        mut tf,
+        collider
+      ) in query.iter_mut()
+      {
+        apply(
+          &mut body, &mut tf, collider
+        );
       }
     }
   }
@@ -632,6 +787,7 @@ pub fn draw_wireframe_system(
 
 pub fn entity_collision_system(
   mut ticks: MessageReader<SimTick>,
+  cfg: Res<ConfigRes>,
   mut set: ParamSet<(
     Query<(
       Entity,
@@ -670,13 +826,30 @@ pub fn entity_collision_system(
     // 2. Detect collisions
     {
       let mut query = set.p0();
-      for (
-        entity_a,
-        body_a,
-        tf_a,
-        col_a
-      ) in query.iter_mut()
+      let mut entities: Vec<Entity> =
+        query
+          .iter()
+          .map(|(e, _, _, _)| e)
+          .collect();
+      if cfg
+        .0
+        .simulation_deterministic()
       {
+        entities.sort_unstable_by_key(
+          |e| e.index()
+        );
+      }
+
+      for entity_a in entities {
+        let Ok((
+          _ea,
+          body_a,
+          tf_a,
+          col_a
+        )) = query.get_mut(entity_a)
+        else {
+          continue;
+        };
         if body_a.fixed {
           continue;
         }
@@ -789,7 +962,9 @@ pub fn particle_system_tick(
     {
       p.lifetime_left -= dt;
       if p.lifetime_left <= 0.0 {
-        commands.entity(entity).despawn();
+        commands
+          .entity(entity)
+          .despawn();
       }
     }
 
@@ -802,7 +977,8 @@ pub fn particle_system_tick(
         sys.accumulator.floor() as u32;
       sys.accumulator -= count as f32;
 
-      let pos = transform.translation().xy();
+      let pos =
+        transform.translation().xy();
 
       for _ in 0..count {
         let vx = sys.velocity_min.x
@@ -832,7 +1008,9 @@ pub fn particle_system_tick(
             InheritedVisibility::VISIBLE
           ))
           .id();
-        commands.entity(parent).add_child(particle);
+        commands
+          .entity(parent)
+          .add_child(particle);
       }
     }
   }
@@ -863,8 +1041,9 @@ pub fn grid_tick(
                   && ny >= 0
                   && ny < h
                 {
-                  if grid.cells
-                    [(ny * w + nx) as usize]
+                  if grid.cells[(ny * w
+                    + nx)
+                    as usize]
                     > 0
                   {
                     neighbors += 1;
@@ -873,15 +1052,22 @@ pub fn grid_tick(
               }
             }
 
-            let idx = (y * w + x) as usize;
-            let alive = grid.cells[idx] > 0;
+            let idx =
+              (y * w + x) as usize;
+            let alive =
+              grid.cells[idx] > 0;
             let next_alive = if alive {
-              neighbors == 2 || neighbors == 3
+              neighbors == 2
+                || neighbors == 3
             } else {
               neighbors == 3
             };
             grid.next_cells[idx] =
-              if next_alive { 1 } else { 0 };
+              if next_alive {
+                1
+              } else {
+                0
+              };
           }
         }
         let grid = &mut *grid;

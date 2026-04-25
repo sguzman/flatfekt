@@ -49,14 +49,27 @@ fn init_tracing(
       "info".to_owned()
     });
 
-  let env_filter = tracing_subscriber::EnvFilter::new(filter_str);
-  let fmt_layer = tracing_subscriber::fmt::layer()
-    .with_writer(std::io::stderr);
+  let env_filter =
+    tracing_subscriber::EnvFilter::new(
+      filter_str
+    );
+  let fmt_layer =
+    tracing_subscriber::fmt::layer()
+      .with_writer(std::io::stderr);
 
   if mode == "dev" {
-    let log_dir = std::path::PathBuf::from(".cache/flatfekt/logs");
-    if let Err(e) = std::fs::create_dir_all(&log_dir) {
-      eprintln!("WARNING: Failed to create log directory {:?}: {}", log_dir, e);
+    let log_dir =
+      std::path::PathBuf::from(
+        ".cache/flatfekt/logs"
+      );
+    if let Err(e) =
+      std::fs::create_dir_all(&log_dir)
+    {
+      eprintln!(
+        "WARNING: Failed to create \
+         log directory {:?}: {}",
+        log_dir, e
+      );
       tracing_subscriber::registry()
         .with(env_filter)
         .with(fmt_layer)
@@ -64,18 +77,30 @@ fn init_tracing(
       return;
     }
 
-    let file_appender = tracing_appender::rolling::hourly(log_dir, "flatfekt.log");
-    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    
-    // We need to keep the guard alive, but init_tracing returns.
-    // In a real app, we'd return the guard or use a global.
-    // For now, we'll leak it or find another way.
-    // Box::leak(Box::new(_guard)) is one way.
+    let file_appender =
+      tracing_appender::rolling::hourly(
+        log_dir,
+        "flatfekt.log"
+      );
+    let (non_blocking, _guard) =
+      tracing_appender::non_blocking(
+        file_appender
+      );
+
+    // We need to keep the guard alive,
+    // but init_tracing returns.
+    // In a real app, we'd return the
+    // guard or use a global.
+    // For now, we'll leak it or find
+    // another way.
+    // Box::leak(Box::new(_guard)) is
+    // one way.
     std::mem::forget(_guard);
 
-    let file_layer = tracing_subscriber::fmt::layer()
-      .with_writer(non_blocking)
-      .with_ansi(false);
+    let file_layer =
+      tracing_subscriber::fmt::layer()
+        .with_writer(non_blocking)
+        .with_ansi(false);
 
     tracing_subscriber::registry()
       .with(env_filter)
@@ -142,21 +167,24 @@ enum Commands {
 
 fn main() -> anyhow::Result<()> {
   let cli = Cli::parse();
-  
+
   let config_path = cli
     .config
     .clone()
     .unwrap_or_else(|| {
       PathBuf::from(
-        ".config/flatfekt/\
-         flatfekt.toml"
+        ".config/flatfekt/flatfekt.\
+         toml"
       )
     });
-  let cfg =
-    load_config(&config_path)
-      .unwrap_or_default();
-  
-  let mode = cfg.app.as_ref().and_then(|a| a.mode.as_deref()).unwrap_or("dev");
+  let cfg = load_config(&config_path)
+    .unwrap_or_default();
+
+  let mode = cfg
+    .app
+    .as_ref()
+    .and_then(|a| a.mode.as_deref())
+    .unwrap_or("dev");
 
   init_tracing(
     cli.level.as_deref(),

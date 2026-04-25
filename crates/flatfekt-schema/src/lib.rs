@@ -367,7 +367,7 @@ pub struct EntitySpec {
     Option<EntityInteractionSpec>,
   pub agent:       Option<AgentSpec>,
   pub script: Option<ScriptHookSpec>,
-  pub grid: Option<GridSpec>
+  pub grid:        Option<GridSpec>
 }
 
 #[derive(
@@ -398,8 +398,8 @@ pub struct AgentSpec {
 )]
 #[serde(deny_unknown_fields)]
 pub struct ScriptHookSpec {
-  pub on_spawn: Option<String>,
-  pub on_tick:  Option<String>,
+  pub on_spawn:  Option<String>,
+  pub on_tick:   Option<String>,
   pub on_update: Option<String>
 }
 
@@ -992,8 +992,8 @@ impl Scene {
               "scene.entities[{idx}] \
                ({:?}) must define at \
                least one of [sprite, \
-               text, shape, particles, \
-               grid]",
+               text, shape, \
+               particles, grid]",
               entity.id
             )
           )

@@ -35,5 +35,5 @@ Own the engine’s “physics/rules” evolution loop: fixed timesteps, physics 
 ## Grouped tasks
 
 ### Determinism policy
-- [ ] Define which sim features are required-deterministic and enforce via tests
+- [x] Define which sim features are required-deterministic and enforce via tests
 - [x] Add seed routing for stochastic sim systems (no hidden randomness)
