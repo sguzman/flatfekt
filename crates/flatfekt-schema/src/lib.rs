@@ -150,6 +150,7 @@ pub struct Scene {
   pub generators:
     Option<Vec<GeneratorSpec>>,
   pub baked: Option<std::path::PathBuf>,
+  #[serde(default)]
   pub entities:       Vec<EntitySpec>
 }
 

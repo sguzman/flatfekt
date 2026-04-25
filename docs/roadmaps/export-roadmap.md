@@ -37,6 +37,7 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 - [x] Add input/timeline event recording format (timestamped)
 - [x] Add replay runner that reproduces a run deterministically (when configured)
 - [x] Add simulation baking (bake command, trajectory export, playback interpolation)
+- [x] Support baking stitched scenes (`scene.sequence[]`) by baking clips and merging into one bake artifact
 - [x] Fix `bake` to run headless (no window), advance simulation time, and write output for `scenes/physics_test.toml`
 - [x] Promote bake output to first-class artifact directory under `.cache/flatfekt/scene/<scene>/bakes/<scene_xxhash>/run-.../` (includes `bake.json`, `scene_playback.toml`, and packaged `assets/`)
 - [x] Upgrade `bake.json` to v0.2 (meta + playback timing + asset manifest + keyframes: transform + text value + sprite color)

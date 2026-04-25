@@ -306,15 +306,14 @@ fn validate_child_scene(
 
 #[instrument(level = "trace", skip_all)]
 pub fn aggregate_driver_system(
-  agg: Option<Res<AggregateSceneRes>>,
-  clock: Res<TimelineClock>,
-  mut scene_res: ResMut<SceneRes>,
-  mut agg_res: Option<
+  agg: Option<
     ResMut<AggregateSceneRes>
   >,
+  clock: Res<TimelineClock>,
+  mut scene_res: ResMut<SceneRes>,
   mut commands: Commands
 ) {
-  let Some(agg) = agg else {
+  let Some(mut agg) = agg else {
     return;
   };
   let mut idx: usize = agg.active_index;
@@ -341,27 +340,22 @@ pub fn aggregate_driver_system(
     - agg.clips[idx].start_secs)
     .max(0.0);
 
-  if let Some(agg) =
-    agg_res.as_deref_mut()
-  {
-    agg.active_local_t = local_t;
-    if idx != agg.active_index {
-      agg.active_index = idx;
-      tracing::debug!(
-        idx,
-        path = %agg.clips[idx].path.display(),
-        "aggregate transitioning to clip"
-      );
-      scene_res.0 =
-        agg.clips[idx].scene.clone();
-      commands
-        .write_message(ResetScene);
-      commands.write_message(
-        SeekTimeline {
-          t_secs:  clock.t_secs,
-          playing: clock.playing
-        }
-      );
-    }
+  agg.active_local_t = local_t;
+  if idx != agg.active_index {
+    agg.active_index = idx;
+    tracing::debug!(
+      idx,
+      path = %agg.clips[idx].path.display(),
+      "aggregate transitioning to clip"
+    );
+    scene_res.0 =
+      agg.clips[idx].scene.clone();
+    commands.write_message(ResetScene);
+    commands.write_message(
+      SeekTimeline {
+        t_secs:  clock.t_secs,
+        playing: clock.playing
+      }
+    );
   }
 }

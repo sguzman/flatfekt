@@ -324,6 +324,28 @@ pub fn bake_scene_to_dir(
       )
     })?;
 
+  if scene_file
+    .scene
+    .sequence
+    .as_ref()
+    .is_some_and(|s| !s.is_empty())
+  {
+    return bake_aggregate_scene_to_dir(
+      cfg,
+      scene_path,
+      scene_bytes,
+      scene_file,
+      req,
+      output_dir,
+      bake_json_path,
+      scene_playback_path,
+      assets_dir,
+      created_unix_secs,
+      pid,
+      scene_hash
+    );
+  }
+
   // Force deterministic stepping for
   // baking.
   let fps = if req.fps.is_finite()
@@ -505,6 +527,543 @@ pub fn bake_scene_to_dir(
       assets
     }
   )?;
+
+  Ok(BakeOutput {
+    dir: output_dir,
+    bake_json_path,
+    scene_playback_path
+  })
+}
+
+#[allow(clippy::too_many_arguments)]
+#[instrument(level = "info", skip_all)]
+fn bake_aggregate_scene_to_dir(
+  mut cfg: flatfekt_config::RootConfig,
+  scene_path: PathBuf,
+  _scene_bytes: Vec<u8>,
+  scene_file: flatfekt_schema::SceneFile,
+  req: BakeRequest,
+  output_dir: PathBuf,
+  bake_json_path: PathBuf,
+  scene_playback_path: PathBuf,
+  assets_dir: PathBuf,
+  created_unix_secs: u64,
+  pid: u32,
+  scene_hash: String
+) -> anyhow::Result<BakeOutput> {
+  let seq = scene_file
+    .scene
+    .sequence
+    .clone()
+    .unwrap_or_default();
+
+  let base_dir = scene_path
+    .parent()
+    .map(|p| p.to_path_buf())
+    .unwrap_or_else(|| {
+      PathBuf::from(".")
+    });
+
+  let mut clips: Vec<(PathBuf, f32)> =
+    Vec::with_capacity(seq.len());
+  for clip in seq {
+    let path =
+      if clip.path.is_absolute() {
+        clip.path
+      } else {
+        base_dir.join(clip.path)
+      };
+    clips
+      .push((path, clip.duration_secs));
+  }
+
+  let mut child_scenes: Vec<
+    flatfekt_schema::SceneFile
+  > = Vec::with_capacity(clips.len());
+
+  let mut fps: Option<f32> = None;
+  let mut res: Option<(u32, u32)> =
+    None;
+
+  for (idx, (path, expected_dur)) in
+    clips.iter().enumerate()
+  {
+    let scene =
+      flatfekt_schema::SceneFile::load_from_path(path)
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+    let pb = scene
+      .scene
+      .playback
+      .as_ref()
+      .ok_or_else(|| {
+        anyhow::anyhow!(
+          "scene {} must have \
+           [scene.playback] for \
+           stitching/bake",
+          path.display()
+        )
+      })?;
+
+    let dur = pb
+      .duration_secs
+      .ok_or_else(|| {
+        anyhow::anyhow!(
+          "scene {} must specify \
+           scene.playback.\
+           duration_secs for \
+           stitching/bake",
+          path.display()
+        )
+      })?;
+    if (dur - *expected_dur).abs()
+      > 1e-6
+    {
+      anyhow::bail!(
+        "scene {} duration mismatch: \
+         clip.duration_secs={} but \
+         scene.playback.\
+         duration_secs={}",
+        path.display(),
+        expected_dur,
+        dur
+      );
+    }
+
+    let child_fps_u32 = pb
+      .target_fps
+      .ok_or_else(
+      || {
+        anyhow::anyhow!(
+          "scene {} must specify \
+           scene.playback.target_fps \
+           for stitching/bake",
+          path.display()
+        )
+      }
+    )?;
+    let child_fps =
+      child_fps_u32 as f32;
+
+    if let Some(prev) = fps {
+      if (prev - child_fps).abs()
+        > 0.0001
+      {
+        anyhow::bail!(
+          "aggregate fps mismatch at \
+           clip[{idx}]: expected {} \
+           but got {} for {}",
+          prev,
+          child_fps,
+          path.display()
+        );
+      }
+    } else {
+      fps = Some(child_fps);
+    }
+
+    let (w, h) = if let Some(r) =
+      scene.scene.resolution
+    {
+      (r.width, r.height)
+    } else {
+      cfg
+        .render_window_width()
+        .zip(cfg.render_window_height())
+        .ok_or_else(|| {
+          anyhow::anyhow!(
+            "scene {} must specify \
+             scene.resolution or \
+             config must set \
+             render.window.width/\
+             height",
+            path.display()
+          )
+        })?
+    };
+
+    if let Some((pw, ph)) = res {
+      if pw != w || ph != h {
+        anyhow::bail!(
+          "aggregate resolution \
+           mismatch at clip[{idx}]: \
+           expected {}x{} but got \
+           {}x{} for {}",
+          pw,
+          ph,
+          w,
+          h,
+          path.display()
+        );
+      }
+    } else {
+      res = Some((w, h));
+    }
+
+    child_scenes.push(scene);
+  }
+
+  let fps = fps.unwrap_or(60.0);
+  if (req.fps - fps).abs() > 0.0001
+    && req.fps.is_finite()
+    && req.fps > 0.0
+  {
+    tracing::warn!(
+      requested_fps = req.fps,
+      stitched_fps = fps,
+      "bake fps override does not \
+       match stitched scene fps; \
+       using stitched fps"
+    );
+  }
+
+  // For aggregate scenes, duration
+  // override is treated as a max
+  // duration (trim) rather than a
+  // hard requirement to match clip
+  // sums.
+  let requested_duration = if req
+    .duration_secs
+    .is_finite()
+    && req.duration_secs > 0.0
+  {
+    req.duration_secs
+  } else {
+    clips.iter().map(|(_, d)| *d).sum()
+  };
+
+  let total_duration: f32 =
+    clips.iter().map(|(_, d)| *d).sum();
+  let duration_secs =
+    requested_duration
+      .min(total_duration);
+
+  // Force deterministic stepping for
+  // baking.
+  {
+    let sim =
+      cfg.simulation.get_or_insert_with(
+        flatfekt_config::SimulationConfig::default,
+      );
+    sim.enabled = Some(true);
+    sim.playing = Some(true);
+    sim.deterministic = Some(true);
+    sim.fixed_dt_secs = Some(1.0 / fps);
+    sim.max_catchup_steps =
+      sim.max_catchup_steps.or(Some(4));
+    sim.time_scale = Some(1.0);
+  }
+  {
+    let rt =
+      cfg.runtime.get_or_insert_with(
+        flatfekt_config::RuntimeConfig::default,
+      );
+    let tl =
+      rt.timeline.get_or_insert_with(
+        flatfekt_config::RuntimeTimelineConfig::default,
+      );
+    tl.enabled = Some(true);
+    tl.deterministic = Some(true);
+    tl.fixed_dt_secs = Some(1.0 / fps);
+    tl.max_catchup_steps =
+      tl.max_catchup_steps.or(Some(4));
+  }
+
+  let mut scene_playback = child_scenes
+    .first()
+    .cloned()
+    .unwrap_or_else(|| {
+      scene_file.clone()
+    });
+  scene_playback.scene.baked =
+    Some(PathBuf::from(BAKE_JSON_FILE));
+  scene_playback.scene.timeline = None;
+  scene_playback.scene.simulation =
+    None;
+  scene_playback.scene.sequence = None;
+
+  if scene_playback
+    .scene
+    .playback
+    .is_none()
+  {
+    scene_playback.scene.playback =
+      Some(
+        flatfekt_schema::PlaybackSpec {
+          duration_secs:        None,
+          loop_mode:            None,
+          allow_user_input:     None,
+          allow_scrub:          None,
+          allow_rewind:         None,
+          enable_introspection: None,
+          target_fps:           None
+        }
+      );
+  }
+  if let Some(pb) = scene_playback
+    .scene
+    .playback
+    .as_mut()
+  {
+    pb.duration_secs =
+      Some(duration_secs);
+    pb.loop_mode =
+      Some("stop".to_owned());
+    pb.target_fps = Some(fps as u32);
+  }
+
+  let has_external_assets =
+    !collect_asset_refs(
+      &scene_playback.scene
+    )
+    .is_empty();
+
+  let assets = if req.copy_assets {
+    if has_external_assets {
+      let src_assets_root =
+        flatfekt_assets::resolve::assets_root(
+          &cfg,
+        )
+        .context(
+          "assets root must be configured for bake asset packaging",
+        )?;
+      package_assets_and_rewrite_scene(
+        &cfg,
+        &src_assets_root,
+        &assets_dir,
+        &mut scene_playback
+      )?
+    } else {
+      Vec::new()
+    }
+  } else {
+    if has_external_assets {
+      rewrite_asset_ids_to_paths(
+        &cfg,
+        &mut scene_playback
+      )?;
+    }
+    Vec::new()
+  };
+
+  let toml = toml::to_string_pretty(
+    &scene_playback
+  )
+  .context(
+    "failed to serialize \
+     scene_playback.toml"
+  )?;
+  std::fs::write(
+    &scene_playback_path,
+    toml
+  )
+  .with_context(|| {
+    format!(
+      "failed to write {}",
+      scene_playback_path.display()
+    )
+  })?;
+
+  let mut merged = BakedSimulation {
+    version: BAKE_VERSION.to_owned(),
+    meta: BakeMeta {
+      created_unix_secs,
+      tool: "flatfekt".to_owned(),
+      tool_version: env!(
+        "CARGO_PKG_VERSION"
+      )
+      .to_owned(),
+      source_scene_path: scene_path
+        .display()
+        .to_string(),
+      source_scene_xxhash64: scene_hash
+    },
+    playback: BakePlayback {
+      fps,
+      dt_secs: 1.0 / fps,
+      duration_secs,
+      loop_mode: "stop".to_owned(),
+      end_behavior: "stop".to_owned()
+    },
+    assets,
+    entities: HashMap::new(),
+    events: Vec::new()
+  };
+
+  let clips_dir =
+    output_dir.join("clips");
+  std::fs::create_dir_all(&clips_dir)
+    .with_context(|| {
+    format!(
+      "failed to create aggregate \
+       clip bake dir at {}",
+      clips_dir.display()
+    )
+  })?;
+
+  let mut t0: f32 = 0.0;
+  let mut remaining = duration_secs;
+
+  for (
+    idx,
+    ((clip_path, clip_dur), clip_scene)
+  ) in clips
+    .iter()
+    .cloned()
+    .zip(child_scenes.into_iter())
+    .enumerate()
+  {
+    if remaining <= 0.0 {
+      break;
+    }
+    let bake_this =
+      clip_dur.min(remaining);
+
+    tracing::info!(
+      idx,
+      path = %clip_path.display(),
+      start_secs = t0,
+      duration_secs = bake_this,
+      "baking stitched clip"
+    );
+
+    let clip_dir = clips_dir
+      .join(format!("clip-{idx:03}"));
+    std::fs::create_dir_all(&clip_dir)
+      .with_context(|| {
+        format!(
+          "failed to create clip bake \
+           dir at {}",
+          clip_dir.display()
+        )
+      })?;
+    let clip_bake_path =
+      clip_dir.join(BAKE_JSON_FILE);
+
+    let playback = BakePlayback {
+      fps,
+      dt_secs: 1.0 / fps,
+      duration_secs: bake_this,
+      loop_mode: "stop".to_owned(),
+      end_behavior: "stop".to_owned()
+    };
+
+    run_bake_app(
+      cfg.clone(),
+      clip_path.clone(),
+      clip_scene,
+      BakeSettings {
+        bake_json_path:
+          clip_bake_path.clone(),
+        scene_playback_path:
+          scene_playback_path.clone(),
+        playback:            playback
+          .clone(),
+        meta:                BakeMeta {
+          created_unix_secs,
+          tool: "flatfekt".to_owned(),
+          tool_version: env!(
+            "CARGO_PKG_VERSION"
+          )
+          .to_owned(),
+          source_scene_path: clip_path
+            .display()
+            .to_string(),
+          source_scene_xxhash64:
+            String::new()
+        },
+        assets:              Vec::new()
+      }
+    )?;
+
+    let json = std::fs::read_to_string(
+      &clip_bake_path
+    )
+    .with_context(|| {
+      format!(
+        "failed to read clip bake \
+         json at {}",
+        clip_bake_path.display()
+      )
+    })?;
+    let mut baked_clip: BakedSimulation =
+      serde_json::from_str(&json)
+        .with_context(|| {
+          format!(
+            "failed to parse clip bake json at {}",
+            clip_bake_path.display()
+          )
+        })?;
+
+    merged.events.push(BakedEvent {
+      t:      t0,
+      action: "aggregate_clip_start"
+        .to_owned(),
+      target: Some(
+        clip_path.display().to_string()
+      )
+    });
+
+    for (id, mut ent) in
+      baked_clip.entities.drain()
+    {
+      for kf in &mut ent.keyframes {
+        kf.t += t0;
+      }
+      merged
+        .entities
+        .entry(id)
+        .or_insert_with(|| {
+          BakedEntity {
+            keyframes: Vec::new()
+          }
+        })
+        .keyframes
+        .extend(ent.keyframes);
+    }
+
+    for mut ev in baked_clip.events {
+      ev.t += t0;
+      merged.events.push(ev);
+    }
+
+    t0 += bake_this;
+    remaining -= bake_this;
+  }
+
+  for ent in
+    merged.entities.values_mut()
+  {
+    ent.keyframes.sort_by(|a, b| {
+      a.t.partial_cmp(&b.t).unwrap_or(
+        std::cmp::Ordering::Equal
+      )
+    });
+  }
+
+  let json =
+    serde_json::to_string_pretty(
+      &merged
+    )
+    .context(
+      "failed to serialize merged \
+       bake.json"
+    )?;
+  std::fs::write(&bake_json_path, json)
+    .with_context(|| {
+      format!(
+        "failed to write merged \
+         bake.json at {}",
+        bake_json_path.display()
+      )
+    })?;
+
+  tracing::info!(
+    pid,
+    duration_secs,
+    clips = clips.len(),
+    "aggregate bake merged and saved"
+  );
 
   Ok(BakeOutput {
     dir: output_dir,
@@ -1045,20 +1604,31 @@ pub fn instantiate_scene_headless_for_bake(
     } else if let Some(shape) =
       &ent.shape
     {
-      if shape.kind == "rect" {
-        let mut s = Sprite::default();
-        if let Some(c) = shape.color {
-          s.color =
-            crate::color_from_rgba(c);
-        }
-        if let (Some(w), Some(h)) =
-          (shape.width, shape.height)
-        {
-          s.custom_size =
-            Some(Vec2::new(w, h));
-        }
-        e.insert(s);
+      let mut s = Sprite::default();
+      if let Some(c) = shape.color {
+        s.color =
+          crate::color_from_rgba(c);
       }
+      match shape.kind.as_str() {
+        | "rect" => {
+          if let (Some(w), Some(h)) =
+            (shape.width, shape.height)
+          {
+            s.custom_size =
+              Some(Vec2::new(w, h));
+          }
+        }
+        | "circle" | "polygon" => {
+          if let Some(r) = shape.radius
+          {
+            s.custom_size = Some(
+              Vec2::splat(2.0 * r)
+            );
+          }
+        }
+        | _ => {}
+      }
+      e.insert(s);
     } else if let Some(particles) =
       &ent.particles
     {
@@ -1126,16 +1696,23 @@ pub fn instantiate_scene_headless_for_bake(
 #[instrument(level = "info", skip_all)]
 fn record_initial_frame(
   entity_map: Res<EntityMap>,
+  materials: Option<
+    Res<Assets<ColorMaterial>>
+  >,
   query: Query<(
     &Transform,
     Option<&Text2d>,
-    Option<&Sprite>
+    Option<&Sprite>,
+    Option<
+      &MeshMaterial2d<ColorMaterial>
+    >
   )>,
   mut recorder: ResMut<BakeRecorder>
 ) {
   record_frame_at_time(
     0.0,
     &entity_map,
+    materials.as_deref(),
     &query,
     &mut recorder
   );
@@ -1147,10 +1724,16 @@ pub fn bake_recording_system(
     crate::simulation::SimulationClock
   >,
   entity_map: Res<EntityMap>,
+  materials: Option<
+    Res<Assets<ColorMaterial>>
+  >,
   query: Query<(
     &Transform,
     Option<&Text2d>,
-    Option<&Sprite>
+    Option<&Sprite>,
+    Option<
+      &MeshMaterial2d<ColorMaterial>
+    >
   )>,
   mut recorder: ResMut<BakeRecorder>
 ) {
@@ -1162,6 +1745,7 @@ pub fn bake_recording_system(
   record_frame_at_time(
     t,
     &entity_map,
+    materials.as_deref(),
     &query,
     &mut recorder
   );
@@ -1170,10 +1754,16 @@ pub fn bake_recording_system(
 fn record_frame_at_time(
   t: f32,
   entity_map: &EntityMap,
+  materials: Option<
+    &Assets<ColorMaterial>
+  >,
   query: &Query<(
     &Transform,
     Option<&Text2d>,
-    Option<&Sprite>
+    Option<&Sprite>,
+    Option<
+      &MeshMaterial2d<ColorMaterial>
+    >
   )>,
   recorder: &mut BakeRecorder
 ) {
@@ -1184,7 +1774,7 @@ fn record_frame_at_time(
     else {
       continue;
     };
-    let Ok((tf, text, sprite)) =
+    let Ok((tf, text, sprite, mat)) =
       query.get(*entity)
     else {
       continue;
@@ -1200,13 +1790,28 @@ fn record_frame_at_time(
         }
       });
 
-    let sprite_rgba = sprite.map(|s| {
-      let rgba = s.color.to_srgba();
-      [
-        rgba.red, rgba.green,
-        rgba.blue, rgba.alpha
-      ]
-    });
+    let sprite_rgba =
+      if let Some(s) = sprite {
+        let rgba = s.color.to_srgba();
+        Some([
+          rgba.red, rgba.green,
+          rgba.blue, rgba.alpha
+        ])
+      } else if let (
+        Some(handle),
+        Some(materials)
+      ) = (mat, materials)
+      {
+        materials.get(handle).map(|m| {
+          let rgba = m.color.to_srgba();
+          [
+            rgba.red, rgba.green,
+            rgba.blue, rgba.alpha
+          ]
+        })
+      } else {
+        None
+      };
 
     entry.keyframes.push(
       BakedKeyframe {
@@ -1614,10 +2219,16 @@ pub fn replay_baked_system(
   >,
   baked: Option<Res<BakedSimulation>>,
   entity_map: Res<EntityMap>,
+  mut materials: Option<
+    ResMut<Assets<ColorMaterial>>
+  >,
   mut query: Query<(
     &mut Transform,
     Option<&mut Text2d>,
-    Option<&mut Sprite>
+    Option<&mut Sprite>,
+    Option<
+      &MeshMaterial2d<ColorMaterial>
+    >
   )>,
   mut last_applied_t: Local<
     Option<f32>
@@ -1682,8 +2293,12 @@ pub fn replay_baked_system(
     };
 
     for ent in target_entities {
-      let Ok((mut tf, text, sprite)) =
-        query.get_mut(*ent)
+      let Ok((
+        mut tf,
+        text,
+        sprite,
+        mat_handle
+      )) = query.get_mut(*ent)
       else {
         continue;
       };
@@ -1732,29 +2347,42 @@ pub fn replay_baked_system(
         };
       }
 
-      if let (
-        Some(c1),
-        Some(c2),
-        Some(mut scomp)
-      ) = (
+      let (Some(c1), Some(c2)) = (
         k1.sprite_rgba,
-        k2.sprite_rgba,
-        sprite
-      ) {
-        let rgba = [
-          c1[0]
-            + (c2[0] - c1[0]) * factor,
-          c1[1]
-            + (c2[1] - c1[1]) * factor,
-          c1[2]
-            + (c2[2] - c1[2]) * factor,
-          c1[3]
-            + (c2[3] - c1[3]) * factor
-        ];
+        k2.sprite_rgba
+      ) else {
+        continue;
+      };
+      let rgba = [
+        c1[0]
+          + (c2[0] - c1[0]) * factor,
+        c1[1]
+          + (c2[1] - c1[1]) * factor,
+        c1[2]
+          + (c2[2] - c1[2]) * factor,
+        c1[3]
+          + (c2[3] - c1[3]) * factor
+      ];
+      if let Some(mut scomp) = sprite {
         scomp.color = Color::srgba(
           rgba[0], rgba[1], rgba[2],
           rgba[3]
         );
+      } else if let Some(handle) =
+        mat_handle
+      {
+        if let Some(materials) =
+          materials.as_deref_mut()
+        {
+          if let Some(mat) =
+            materials.get_mut(handle)
+          {
+            mat.color = Color::srgba(
+              rgba[0], rgba[1],
+              rgba[2], rgba[3]
+            );
+          }
+        }
       }
     }
   }

@@ -2,3 +2,5 @@
 logs
 tmp
 .cache
+output
+*.mp4
