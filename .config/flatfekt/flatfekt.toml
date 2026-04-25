@@ -28,6 +28,12 @@ unix_backend = "wayland"
 backend = "vulkan"
 target_fps = 60
 
+[render.window]
+# Default window resolution. A scene can override this by specifying:
+# `scene.resolution = { width = ..., height = ... }`
+width = 1280
+height = 720
+
 [render.effects]
 # Enable global post-processing effects and compositing.
 enabled = false

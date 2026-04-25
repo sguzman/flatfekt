@@ -31,6 +31,7 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 - [x] Add tests for ffmpeg argument building + validation (no-GPU)
 - [x] Add feature-gated GPU export integration smoke test (bake + export 0.1s to temp dir)
 - [x] Improve export CLI output (paths + summary) and support `--out <dir>` for `export-mp4`
+- [x] Reduce per-frame export logging (timeline seek) to debug level
 
 ### M2 — replay
 - [x] Add input/timeline event recording format (timestamped)

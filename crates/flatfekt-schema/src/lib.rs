@@ -124,6 +124,8 @@ pub struct SceneFile {
 #[serde(deny_unknown_fields)]
 pub struct Scene {
   pub schema_version: String,
+  pub resolution:
+    Option<ResolutionSpec>,
   pub camera: Option<CameraSpec>,
   pub background:
     Option<BackgroundSpec>,
@@ -258,6 +260,20 @@ pub struct SimRegionSpec {
   pub gravity:    Option<[f32; 2]>,
   pub bounds:     Option<[f32; 4]>,
   pub time_scale: Option<f32>
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Copy,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ResolutionSpec {
+  pub width:  u32,
+  pub height: u32
 }
 
 #[derive(

@@ -23,6 +23,7 @@ Own 2D visual output: camera model, layering/z-order, sprites, shapes, materials
 - [x] Define coordinate system policy (pixels vs world units) and implement it consistently
 - [x] Add viewport scaling modes (fit, fill, pixel-perfect) configurable
 - [x] Add anchor/origin semantics for sprites/shapes/text and test them with fixtures
+- [x] Add scene resolution policy (scene override or global config) and apply it to the window
 
 ### M2 — materials and effects
 - [x] Add sprite tint/opacity controls

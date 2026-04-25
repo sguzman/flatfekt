@@ -10,6 +10,9 @@ unix_backend = "wayland"
 [render]
 backend = "vulkan"
 
+[render.window]
+width = 1280
+height = 720
+
 [assets.map]
 logo = "images/logo.png"
-

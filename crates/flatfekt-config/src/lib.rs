@@ -239,8 +239,18 @@ pub struct PlatformConfig {
 pub struct RenderConfig {
   pub backend:    Option<String>,
   pub target_fps: Option<u32>,
+  pub window:
+    Option<RenderWindowConfig>,
   pub effects:
     Option<RenderEffectsConfig>
+}
+
+#[derive(
+  Debug, Clone, Deserialize, Default,
+)]
+pub struct RenderWindowConfig {
+  pub width:  Option<u32>,
+  pub height: Option<u32>
 }
 
 #[derive(
@@ -673,6 +683,31 @@ impl RootConfig {
     }
 
     if let Some(render) = &self.render {
+      if let Some(win) = &render.window
+      {
+        if let Some(w) = win.width {
+          if w == 0 {
+            return Err(
+              ConfigError::Validate(
+                "render.window.width \
+                 must be >= 1"
+                  .to_owned()
+              )
+            );
+          }
+        }
+        if let Some(h) = win.height {
+          if h == 0 {
+            return Err(
+              ConfigError::Validate(
+                "render.window.height \
+                 must be >= 1"
+                  .to_owned()
+              )
+            );
+          }
+        }
+      }
       if let Some(effects) =
         &render.effects
       {
@@ -1152,6 +1187,26 @@ impl RootConfig {
       .as_ref()
       .and_then(|r| r.target_fps)
       .unwrap_or(60)
+  }
+
+  pub fn render_window_width(
+    &self
+  ) -> Option<u32> {
+    self
+      .render
+      .as_ref()
+      .and_then(|r| r.window.as_ref())
+      .and_then(|w| w.width)
+  }
+
+  pub fn render_window_height(
+    &self
+  ) -> Option<u32> {
+    self
+      .render
+      .as_ref()
+      .and_then(|r| r.window.as_ref())
+      .and_then(|w| w.height)
   }
 }
 

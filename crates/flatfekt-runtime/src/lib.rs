@@ -377,7 +377,6 @@ impl Plugin for FlatfektRuntimePlugin {
       );
   }
 }
-
 pub fn build_app(
   cfg: RootConfig,
   scene_path: PathBuf,
@@ -385,6 +384,35 @@ pub fn build_app(
 ) -> Result<App, RuntimeError> {
   let root = assets_root(&cfg)?;
   let mut app = App::new();
+
+  let scene_res = scene
+    .scene
+    .resolution
+    .map(|r| (r.width, r.height));
+  let cfg_res = cfg
+    .render_window_width()
+    .zip(cfg.render_window_height());
+  let (win_w, win_h) =
+    match (scene_res, cfg_res) {
+      | (Some((w, h)), _) => (w, h),
+      | (None, Some((w, h))) => (w, h),
+      | (None, None) => {
+        return Err(
+          RuntimeError::Scene(
+            SceneError::Validate(
+              "scene.resolution must \
+               be specified \
+               (width/height) or \
+               render.window.width/\
+               render.window.height \
+               must be set in the \
+               control-pane config"
+                .to_owned()
+            )
+          )
+        );
+      }
+    };
 
   if cfg.feature_hot_reload_enabled() {
     let (tx, rx) =
@@ -495,6 +523,18 @@ pub fn build_app(
   // it and rely on our tracing setup.
   let mut plugins =
     DefaultPlugins.build();
+  let mut window =
+    bevy::window::Window::default();
+  window.resolution =
+    bevy::window::WindowResolution::new(
+      win_w, win_h
+    );
+  plugins = plugins.set(
+    bevy::window::WindowPlugin {
+      primary_window: Some(window),
+      ..default()
+    }
+  );
   plugins = plugins
     .disable::<bevy::log::LogPlugin>();
   app.add_plugins(plugins);

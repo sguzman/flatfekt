@@ -307,7 +307,7 @@ pub fn apply_seek_timeline(
   Ok(())
 }
 
-#[instrument(level = "info", skip_all)]
+#[instrument(level = "debug", skip_all)]
 pub fn seek_timeline_system(
   mut events: MessageReader<
     crate::SeekTimeline
@@ -323,7 +323,7 @@ pub fn seek_timeline_system(
       ev.playing
     ) {
       | Ok(()) => {
-        tracing::info!(
+        tracing::debug!(
           t_secs = clock.t_secs,
           cursor = plan.cursor,
           "timeline seek applied"

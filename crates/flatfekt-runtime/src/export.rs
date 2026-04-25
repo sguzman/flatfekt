@@ -303,7 +303,7 @@ fn export_frames_system(
         || job.next_frame_index
           == job.frame_count
       {
-        tracing::info!(
+        tracing::debug!(
           done = job.next_frame_index,
           total = job.frame_count,
           "export progress"
