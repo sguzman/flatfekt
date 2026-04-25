@@ -6,6 +6,7 @@ use bevy_egui::{
   PrimaryEguiContext
 };
 use flatfekt_config::RootConfig;
+use flatfekt_runtime::aggregate::AggregateSceneRes;
 use flatfekt_runtime::{
   DebugSettings,
   EntityMap,
@@ -85,6 +86,7 @@ fn egui_timeline_panel(
   cfg: Res<flatfekt_runtime::ConfigRes>,
   time: Res<Time>,
   scene: Res<SceneRes>,
+  agg: Option<Res<AggregateSceneRes>>,
   entity_map: Res<EntityMap>,
   mut debug: ResMut<DebugSettings>,
   mut seek: MessageWriter<SeekTimeline>,
@@ -149,6 +151,92 @@ fn egui_timeline_panel(
   )
   .resizable(true)
   .show(&*ctx, |ui| {
+    if let Some(agg) = agg.as_deref() {
+      ui.collapsing("Playlist", |ui| {
+        for (i, clip) in
+          agg.clips.iter().enumerate()
+        {
+          let is_active =
+            i == agg.active_index;
+          ui.horizontal(|ui| {
+            if ui
+              .add_enabled(
+                !is_active,
+                bevy_egui::egui::Button::new(
+                  format!(
+                    "Scene {}",
+                    i + 1
+                  )
+                )
+              )
+              .clicked()
+            {
+              let t = clip.start_secs;
+              clock.t_secs = t;
+              seek.write(SeekTimeline {
+                t_secs:  t,
+                playing: clock.playing
+              });
+            }
+            ui.label(format!(
+              "{} [{}–{}] dur={:.3}s {}",
+              clip
+                .path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("scene"),
+              clip.start_secs,
+              clip.end_secs,
+              clip.duration_secs,
+              if is_active {
+                "(active)"
+              } else {
+                ""
+              }
+            ));
+          });
+        }
+      });
+
+      ui.separator();
+
+      let active =
+        &agg.clips[agg.active_index];
+      ui.label(format!(
+        "Current scene: {}",
+        active
+          .path
+          .file_name()
+          .and_then(|s| s.to_str())
+          .unwrap_or("scene")
+      ));
+      let mut local_t = agg
+        .active_local_t
+        .clamp(0.0, active.duration_secs);
+      let slider =
+        bevy_egui::egui::Slider::new(
+          &mut local_t,
+          0.0..=active.duration_secs
+        )
+        .text("scene time")
+        .drag_value_speed(
+          (active.duration_secs as f64)
+            / 250.0
+        );
+      let resp = ui.add(slider);
+      if resp.changed() {
+        let global =
+          active.start_secs + local_t;
+        clock.t_secs = global;
+        seek.write(SeekTimeline {
+          t_secs:  global,
+          playing: clock.playing
+        });
+      }
+
+      ui.separator();
+    }
+
     ui.horizontal(|ui| {
       if ui.button("|<").clicked() {
         clock.t_secs = 0.0;

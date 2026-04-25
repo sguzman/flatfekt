@@ -36,6 +36,7 @@ Own interface around the scene: HUD, inspector panels, debug overlays, menus, ti
   - [x] Update scrubber to apply frames while paused (baked playback seeks must redraw)
   - [x] Add seek-to-start / seek-to-end buttons
   - [x] Add mousewheel seek on scrubber hover (Ctrl+wheel adjusts seek step)
+- [x] Add aggregate playlist panel (jump buttons) and dual timelines (global + per-scene) when stitching is enabled
 
 ### M2b — scene playback (video-like)
 - [x] Add rewind/fast-forward controls (when enabled by scene policy)

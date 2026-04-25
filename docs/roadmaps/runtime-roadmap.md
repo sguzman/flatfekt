@@ -34,6 +34,7 @@ Turn schema into a running Bevy world: load, instantiate, reset, reload, transit
 - [x] Implement patch application (add/remove/update entities)
 - [x] Implement scene-to-scene transitions (clear old scene + load new) with configurable strategy
 - [x] Add “scene state snapshot” for deterministic replay (serialize minimal state)
+- [x] Implement aggregate scene stitching: play a sequence of referenced scenes back-to-back with strict fps/resolution/duration validation
 
 ### M3 — scheduling and determinism
 - [x] Define engine schedule sets (Load, SimTick, RenderPrep, UI, etc.)

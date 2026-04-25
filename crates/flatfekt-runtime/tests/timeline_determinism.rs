@@ -53,7 +53,8 @@ fn timeline_seek_sets_cursor_deterministically()
   };
 
   apply_seek_timeline(
-    &mut clock, &mut plan, 0.8, false
+    &mut clock, &mut plan, 0.8, 0.8,
+    false
   )
   .expect("seek applies");
 

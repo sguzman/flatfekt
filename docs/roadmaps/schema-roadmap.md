@@ -33,6 +33,7 @@ Define the TOML schema that describes scenes as data: entities, components, asse
 - [x] Add “prefab/template” mechanism (named component bundles) and `extends` semantics
 - [x] Add entity tags/groups for selection and bulk operations
 - [x] Add “asset reference” indirection (logical IDs mapped to paths via config)
+- [x] Add aggregate scene stitching format (`scene.sequence[]`) referencing other scenes for playback
 
 ### M2 — deltas/patches and time
 - [x] Define patch format for entity add/remove/update (stable operations)

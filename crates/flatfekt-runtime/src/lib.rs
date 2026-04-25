@@ -197,6 +197,7 @@ pub struct AssetsCacheRes(
 );
 
 pub mod agents;
+pub mod aggregate;
 pub mod animation;
 pub mod bake;
 pub mod export;
@@ -205,6 +206,22 @@ pub mod interaction;
 pub mod rapier_backend;
 pub mod render_effects;
 pub mod simulation;
+
+#[inline]
+pub fn effective_scene_time_secs(
+  global_t_secs: f32,
+  agg: Option<
+    &aggregate::AggregateSceneRes
+  >
+) -> f32 {
+  let Some(agg) = agg else {
+    return global_t_secs;
+  };
+  let clip =
+    &agg.clips[agg.active_index];
+  (global_t_secs - clip.start_secs)
+    .max(0.0)
+}
 
 pub struct FlatfektRuntimePlugin;
 
@@ -265,6 +282,12 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_systems(
         Startup,
         bake::init_baked_simulation
+      )
+      .add_systems(
+        Startup,
+        aggregate::init_aggregate_scene
+          .after(init_timeline_clock)
+          .before(instantiate_scene)
       )
       .add_systems(
         Startup,
@@ -344,6 +367,14 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_systems(
         Update,
+        aggregate::aggregate_driver_system
+          .in_set(FlatfektSet::SimTick)
+          .after(timeline_driver)
+          .before(animation::process_timeline_events)
+          .before(bake::replay_baked_system)
+      )
+      .add_systems(
+        Update,
         (
           animation::update_tweens
             .in_set(FlatfektSet::SimTick)
@@ -366,7 +397,12 @@ impl Plugin for FlatfektRuntimePlugin {
       )
       .add_systems(
         Update,
-        (reset_scene_system, instantiate_scene)
+        (
+          reset_scene_system,
+          simulation::init_simulation,
+          animation::init_timeline_plan,
+          instantiate_scene
+        )
           .chain()
           .run_if(bevy::ecs::schedule::common_conditions::on_message::<ResetScene>)
           .in_set(FlatfektSet::Instantiate)

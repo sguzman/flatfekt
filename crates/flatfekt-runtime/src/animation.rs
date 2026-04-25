@@ -289,20 +289,23 @@ fn parse_event_meta(
 pub fn apply_seek_timeline(
   clock: &mut crate::TimelineClock,
   plan: &mut TimelinePlan,
-  t_secs: f32,
+  global_t_secs: f32,
+  effective_t_secs: f32,
   playing: bool
 ) -> Result<(), &'static str> {
-  if !t_secs.is_finite() {
+  if !global_t_secs.is_finite()
+    || !effective_t_secs.is_finite()
+  {
     return Err(
       "seek ignored: non-finite time"
     );
   }
-  clock.t_secs = t_secs.max(0.0);
+  clock.t_secs = global_t_secs.max(0.0);
   clock.accumulator_secs = 0.0;
   clock.playing = playing;
   plan.cursor =
     plan.events.partition_point(|e| {
-      e.time < clock.t_secs
+      e.time < effective_t_secs
     });
   Ok(())
 }
@@ -315,16 +318,29 @@ pub fn seek_timeline_system(
   mut clock: ResMut<
     crate::TimelineClock
   >,
-  mut plan: ResMut<TimelinePlan>
+  mut plan: ResMut<TimelinePlan>,
+  agg: Option<
+    Res<crate::aggregate::AggregateSceneRes>
+  >
 ) {
+  let agg = agg.as_deref();
   for ev in events.read() {
+    let effective_t =
+      crate::effective_scene_time_secs(
+        ev.t_secs, agg
+      );
     match apply_seek_timeline(
-      &mut clock, &mut plan, ev.t_secs,
+      &mut clock,
+      &mut plan,
+      ev.t_secs,
+      effective_t,
       ev.playing
     ) {
       | Ok(()) => {
         tracing::debug!(
-          t_secs = clock.t_secs,
+          global_t_secs = clock.t_secs,
+          effective_t_secs =
+            effective_t,
           cursor = plan.cursor,
           "timeline seek applied"
         )
@@ -346,6 +362,9 @@ pub fn process_timeline_events(
   entity_map: Res<crate::EntityMap>,
   q_transform: Query<&Transform>,
   mut last_t: Local<f32>,
+  agg: Option<
+    Res<crate::aggregate::AggregateSceneRes>
+  >,
   mut commands: Commands
 ) {
   if !clock.enabled {
@@ -355,7 +374,11 @@ pub fn process_timeline_events(
     );
     return;
   }
-  let t = clock.t_secs;
+  let t =
+    crate::effective_scene_time_secs(
+      clock.t_secs,
+      agg.as_deref()
+    );
   if t < *last_t {
     tracing::info!(
       from = *last_t,
@@ -585,6 +608,9 @@ fn parse_easing(
 #[instrument(level = "trace", skip_all)]
 pub fn update_tweens(
   clock: Res<crate::TimelineClock>,
+  agg: Option<
+    Res<crate::aggregate::AggregateSceneRes>
+  >,
   mut transform_and_camera: ParamSet<(
     Query<(
       &mut Transform,
@@ -613,10 +639,14 @@ pub fn update_tweens(
     Without<ColorTween>
   >
 ) {
-  if !clock.enabled || !clock.playing {
+  if !clock.enabled {
     return;
   }
-  let t_secs = clock.t_secs;
+  let t_secs =
+    crate::effective_scene_time_secs(
+      clock.t_secs,
+      agg.as_deref()
+    );
 
   for (mut transform, tween) in
     transform_and_camera.p0().iter_mut()
@@ -788,15 +818,22 @@ pub fn update_tweens(
 #[instrument(level = "trace", skip_all)]
 pub fn update_typewriter(
   clock: Res<crate::TimelineClock>,
+  agg: Option<
+    Res<crate::aggregate::AggregateSceneRes>
+  >,
   mut query: Query<(
     &TypewriterEffect,
     &mut Text2d
   )>
 ) {
-  if !clock.enabled || !clock.playing {
+  if !clock.enabled {
     return;
   }
-  let t_secs = clock.t_secs;
+  let t_secs =
+    crate::effective_scene_time_secs(
+      clock.t_secs,
+      agg.as_deref()
+    );
   for (effect, mut text) in
     query.iter_mut()
   {

@@ -126,6 +126,8 @@ pub struct Scene {
   pub schema_version: String,
   pub resolution:
     Option<ResolutionSpec>,
+  pub sequence:
+    Option<Vec<SceneClipSpec>>,
   pub camera: Option<CameraSpec>,
   pub background:
     Option<BackgroundSpec>,
@@ -274,6 +276,19 @@ pub struct SimRegionSpec {
 pub struct ResolutionSpec {
   pub width:  u32,
   pub height: u32
+}
+
+#[derive(
+  schemars::JsonSchema,
+  Debug,
+  Clone,
+  Serialize,
+  Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct SceneClipSpec {
+  pub path:          PathBuf,
+  pub duration_secs: f32
 }
 
 #[derive(
@@ -741,12 +756,60 @@ impl Scene {
       ));
     }
 
-    if self.entities.is_empty() {
+    let has_sequence = self
+      .sequence
+      .as_ref()
+      .is_some_and(|s| !s.is_empty());
+    if self.entities.is_empty()
+      && !has_sequence
+    {
       return Err(SceneError::Validate(
         "scene.entities must not be \
-         empty"
+         empty (unless scene.sequence \
+         is present)"
           .to_owned()
       ));
+    }
+
+    if let Some(res) = self.resolution {
+      if res.width == 0
+        || res.height == 0
+      {
+        return Err(
+          SceneError::Validate(
+            "scene.resolution.width/\
+             height must be >= 1"
+              .to_owned()
+          )
+        );
+      }
+    }
+
+    if let Some(seq) = &self.sequence {
+      for (idx, clip) in
+        seq.iter().enumerate()
+      {
+        if clip.duration_secs <= 0.0
+          || !clip
+            .duration_secs
+            .is_finite()
+        {
+          return Err(SceneError::Validate(
+            format!(
+              "scene.sequence[{idx}].duration_secs must be finite and > 0"
+            )
+          ));
+        }
+        let p =
+          clip.path.to_string_lossy();
+        if p.trim().is_empty() {
+          return Err(SceneError::Validate(
+            format!(
+              "scene.sequence[{idx}].path must not be empty"
+            )
+          ));
+        }
+      }
     }
 
     if let Some(d) = &self.defaults {

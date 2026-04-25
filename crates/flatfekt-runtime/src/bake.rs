@@ -1609,6 +1609,9 @@ pub fn init_baked_simulation(
 #[instrument(level = "trace", skip_all)]
 pub fn replay_baked_system(
   clock: Res<crate::TimelineClock>,
+  agg: Option<
+    Res<crate::aggregate::AggregateSceneRes>
+  >,
   baked: Option<Res<BakedSimulation>>,
   entity_map: Res<EntityMap>,
   mut query: Query<(
@@ -1627,7 +1630,11 @@ pub fn replay_baked_system(
     return;
   }
 
-  let t = clock.t_secs;
+  let t =
+    crate::effective_scene_time_secs(
+      clock.t_secs,
+      agg.as_deref()
+    );
   if let Some(prev) = *last_applied_t {
     if (prev - t).abs() < 0.000001 {
       return;
