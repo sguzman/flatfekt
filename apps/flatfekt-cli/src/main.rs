@@ -37,7 +37,7 @@ fn init_tracing(
   level: Option<&str>,
   filter: Option<&str>,
   mode: &str
-) {
+) -> tracing_appender::non_blocking::WorkerGuard {
   use tracing_subscriber::prelude::*;
 
   let filter_str = filter
@@ -60,39 +60,48 @@ fn init_tracing(
       log_dir,
       "flatfekt.log"
     );
-  let (non_blocking, _guard) =
+  let (non_blocking, guard) =
     tracing_appender::non_blocking(
       file_appender
     );
-  std::mem::forget(_guard);
 
-  if mode == "dev" {
-    let file_layer =
-      tracing_subscriber::fmt::layer()
-        .with_writer(non_blocking)
-        .with_ansi(false);
-
-    tracing_subscriber::fmt()
-      .with_env_filter(
-        tracing_subscriber::EnvFilter::new(
-          filter_str
-        )
-      )
-      .with_writer(std::io::stderr)
-      .finish()
-      .with(file_layer)
-      .init();
-  } else {
-    tracing_subscriber::fmt()
-      .with_env_filter(
-        tracing_subscriber::EnvFilter::new(
-          filter_str
-        )
-      )
+  let file_layer =
+    tracing_subscriber::fmt::layer()
       .with_writer(non_blocking)
       .with_ansi(false)
-      .init();
-  }
+      .with_filter(
+        tracing_subscriber::EnvFilter::new(
+          &filter_str
+        )
+      );
+
+  // Terminal logs: more compact in dev,
+  // warn-only in prod.
+  let stderr_layer =
+    tracing_subscriber::fmt::layer()
+      .with_writer(std::io::stderr)
+      .with_target(false)
+      .compact();
+
+  let stderr_filter = if mode == "dev" {
+    tracing_subscriber::EnvFilter::new(
+      &filter_str
+    )
+  } else {
+    tracing_subscriber::EnvFilter::new(
+      "warn"
+    )
+  };
+
+  tracing_subscriber::registry()
+    .with(file_layer)
+    .with(
+      stderr_layer
+        .with_filter(stderr_filter)
+    )
+    .init();
+
+  guard
 }
 
 #[derive(Subcommand)]
@@ -166,7 +175,7 @@ fn main() -> anyhow::Result<()> {
     .and_then(|a| a.mode.as_deref())
     .unwrap_or("dev");
 
-  init_tracing(
+  let _guard = init_tracing(
     cli.level.as_deref(),
     cli.filter.as_deref(),
     mode
