@@ -36,10 +36,10 @@ height = 720
 
 [render.effects]
 # Enable global post-processing effects and compositing.
-enabled = false
+enabled = true
 
 # Select which `scene.effects[].id` is active globally.
-# global_effect_id = "grayscale"
+global_effect_id = "invert"
 
 [render.effects.render_to_texture]
 # If enabled, render the scene to an offscreen texture before presenting.

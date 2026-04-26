@@ -1,0 +1,19 @@
+[scene]
+schema_version = "0.1"
+
+[scene.camera]
+scaling_mode = "window_size"
+
+[[scene.effects]]
+id = "grayscale"
+glsl = "flatfekt/shaders/grayscale.frag"
+
+[[scene.entities]]
+id = "test_sprite"
+[scene.entities.sprite]
+image = "test_sprite.png"
+
+[scene.entities.transform]
+x = 0.0
+y = 0.0
+scale = 1.0

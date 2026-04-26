@@ -1105,7 +1105,12 @@ fn collect_asset_refs<'a>(
   if let Some(effects) = &scene.effects
   {
     for eff in effects {
-      out.push(("wgsl", &eff.wgsl));
+      if let Some(wgsl) = &eff.wgsl {
+        out.push(("wgsl", wgsl));
+      }
+      if let Some(glsl) = &eff.glsl {
+        out.push(("glsl", glsl));
+      }
     }
   }
 
@@ -1170,7 +1175,12 @@ fn rewrite_asset_ids_to_paths(
     &mut scene.effects
   {
     for eff in effects {
-      rewrite(&mut eff.wgsl)?;
+      if let Some(wgsl) = &mut eff.wgsl {
+        rewrite(wgsl)?;
+      }
+      if let Some(glsl) = &mut eff.glsl {
+        rewrite(glsl)?;
+      }
     }
   }
   for ent in &mut scene.entities {
@@ -1252,7 +1262,12 @@ fn for_each_asset_ref_mut(
     &mut scene.effects
   {
     for eff in effects {
-      f("wgsl", &mut eff.wgsl)?;
+      if let Some(wgsl) = &mut eff.wgsl {
+        f("wgsl", wgsl)?;
+      }
+      if let Some(glsl) = &mut eff.glsl {
+        f("glsl", glsl)?;
+      }
     }
   }
 
@@ -1313,8 +1328,7 @@ fn package_assets_and_rewrite_scene(
   for_each_asset_ref_mut(
     &mut scene_file.scene,
     |role, asset| {
-      let original =
-        asset_ref_original(asset);
+      let original = asset_ref_original(asset);
       let abs =
         flatfekt_assets::resolve::resolve_asset_path_cfg(
           cfg,
@@ -1386,15 +1400,10 @@ fn package_assets_and_rewrite_scene(
           sha256,
           bytes: bytes.len() as u64
         });
-        copied.insert(packaged_path);
+        copied.insert(packaged_path.clone());
       }
 
-      // Rewrite the scene to point to
-      // the packaged asset.
-      *asset = flatfekt_schema::AssetRef::Path {
-        path: PathBuf::from(BAKE_ASSETS_DIR)
-          .join(rel),
-      };
+      *asset = flatfekt_schema::AssetRef::String(packaged_path);
       Ok(())
     }
   )?;

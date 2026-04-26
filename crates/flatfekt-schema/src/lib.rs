@@ -302,7 +302,8 @@ pub struct SceneClipSpec {
 #[serde(deny_unknown_fields)]
 pub struct EffectSpec {
   pub id:     String,
-  pub wgsl:   AssetRef,
+  pub wgsl:   Option<AssetRef>,
+  pub glsl:   Option<AssetRef>,
   #[schemars(skip)]
   pub params: Option<toml::Value>
 }
@@ -999,32 +1000,46 @@ impl Scene {
             )
           );
         }
-        match &e.wgsl {
-          | AssetRef::String(s)
-            if s.trim().is_empty() =>
-          {
-            return Err(SceneError::Validate(format!(
-              "scene.effects[{eidx}].wgsl must not be empty"
-            )));
+        if e.wgsl.is_none() && e.glsl.is_none() {
+          return Err(SceneError::Validate(format!(
+            "scene.effects[{eidx}] must have either wgsl or glsl specified"
+          )));
+        }
+        if e.wgsl.is_some() && e.glsl.is_some() {
+          return Err(SceneError::Validate(format!(
+            "scene.effects[{eidx}] cannot have both wgsl and glsl specified"
+          )));
+        }
+
+        let shader_ref = e.wgsl.as_ref().or(e.glsl.as_ref());
+        if let Some(shader) = shader_ref {
+          match shader {
+            | AssetRef::String(s)
+              if s.trim().is_empty() =>
+            {
+              return Err(SceneError::Validate(format!(
+                "scene.effects[{eidx}] shader path must not be empty"
+              )));
+            }
+            | AssetRef::Path {
+              path
+            } if path
+              .as_os_str()
+              .is_empty() =>
+            {
+              return Err(SceneError::Validate(format!(
+                "scene.effects[{eidx}] shader path must not be empty"
+              )));
+            }
+            | AssetRef::Id {
+              id
+            } if id.trim().is_empty() => {
+              return Err(SceneError::Validate(format!(
+                "scene.effects[{eidx}] shader id must not be empty"
+              )));
+            }
+            | _ => {}
           }
-          | AssetRef::Path {
-            path
-          } if path
-            .as_os_str()
-            .is_empty() =>
-          {
-            return Err(SceneError::Validate(format!(
-              "scene.effects[{eidx}].wgsl must not be empty"
-            )));
-          }
-          | AssetRef::Id {
-            id
-          } if id.trim().is_empty() => {
-            return Err(SceneError::Validate(format!(
-              "scene.effects[{eidx}].wgsl id must not be empty"
-            )));
-          }
-          | _ => {}
         }
       }
     }

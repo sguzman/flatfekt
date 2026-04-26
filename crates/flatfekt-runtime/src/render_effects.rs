@@ -1,17 +1,21 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
+use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy::render::render_resource::{
   AsBindGroup,
   Extent3d,
   ShaderType,
   TextureDimension,
-  TextureFormat
+  TextureFormat,
+  RenderPipelineDescriptor,
+  SpecializedMeshPipelineError
 };
 use bevy_camera::RenderTarget;
 use bevy_mesh::Mesh2d;
 use bevy_shader::ShaderRef;
 use bevy_sprite_render::{
   Material2d,
+  Material2dKey,
   Material2dPlugin,
   MeshMaterial2d
 };
@@ -36,20 +40,28 @@ pub struct RenderToTextureRes {
   pub image: Handle<Image>
 }
 
-#[derive(
-  Asset,
-  TypePath,
-  AsBindGroup,
-  Debug,
-  Clone,
-)]
+#[derive(Eq, PartialEq, Hash, Clone)]
+pub struct PostProcessKey {
+  pub shader: Handle<Shader>
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+#[bind_group_data(PostProcessKey)]
 pub struct PostProcessMaterial {
   #[texture(0)]
   #[sampler(1)]
   pub source: Handle<Image>,
-
   #[uniform(2)]
-  pub params: PostProcessParams
+  pub params: PostProcessParams,
+  pub shader: Handle<Shader>
+}
+
+impl From<&PostProcessMaterial> for PostProcessKey {
+  fn from(m: &PostProcessMaterial) -> Self {
+    Self {
+      shader: m.shader.clone()
+    }
+  }
 }
 
 #[derive(
@@ -63,21 +75,18 @@ impl Material2d
   for PostProcessMaterial
 {
   fn fragment_shader() -> ShaderRef {
-    // Runtime-selected effect WGSL is
-    // planned via render graph. For
-    // tranche R1 we
-    // ensure TOML-referenced WGSL
-    // resolves and validates, and
-    // we provide a stable
-    // built-in postprocess shader path.
-    //
-    // The example shader is
-    // loaded/validated from TOML,
-    // but this baseline material
-    // uses a fixed shader for the
-    // fullscreen pass.
     "flatfekt/shaders/postprocess.wgsl"
       .into()
+  }
+
+  fn specialize(
+    descriptor: &mut RenderPipelineDescriptor,
+    _layout: &MeshVertexBufferLayoutRef,
+    key: Material2dKey<Self>,
+  ) -> Result<(), SpecializedMeshPipelineError> {
+    descriptor.fragment.as_mut().unwrap().shader =
+      key.bind_group_data.shader.clone();
+    Ok(())
   }
 }
 
@@ -226,12 +235,21 @@ fn apply_camera_targets(
         {
           // Kick load + parse
           // validation.
-          let _ = flatfekt_assets::resolve::bevy_load::load_wgsl_shader(
-            &asset_server,
-            &cfg.0,
-            &assets_root.0,
-            &effect.wgsl,
-          );
+          if let Some(wgsl) = &effect.wgsl {
+            let _ = flatfekt_assets::resolve::bevy_load::load_wgsl_shader(
+              &asset_server,
+              &cfg.0,
+              &assets_root.0,
+              wgsl,
+            );
+          } else if let Some(glsl) = &effect.glsl {
+            let _ = flatfekt_assets::resolve::bevy_load::load_glsl_shader(
+              &asset_server,
+              &cfg.0,
+              &assets_root.0,
+              glsl,
+            );
+          }
         }
       }
     }
@@ -309,6 +327,9 @@ fn apply_camera_targets(
     let mesh2d = Mesh2d(mesh);
 
     let mut intensity = 1.0;
+    let mut shader_handle: Handle<Shader> =
+      asset_server.load("flatfekt/shaders/postprocess.wgsl");
+
     if let (
       Some(scene),
       Some(global_id)
@@ -337,6 +358,22 @@ fn apply_camera_targets(
               intensity = v as f32;
             }
           }
+
+          if let Some(wgsl) = &effect.wgsl {
+            shader_handle = flatfekt_assets::resolve::bevy_load::load_wgsl_shader(
+              &asset_server,
+              &cfg.as_deref().unwrap().0,
+              &assets_root.as_deref().unwrap().0,
+              wgsl,
+            ).unwrap_or(shader_handle);
+          } else if let Some(glsl) = &effect.glsl {
+            shader_handle = flatfekt_assets::resolve::bevy_load::load_glsl_shader(
+              &asset_server,
+              &cfg.as_deref().unwrap().0,
+              &assets_root.as_deref().unwrap().0,
+              glsl,
+            ).unwrap_or(shader_handle);
+          }
         }
       }
     }
@@ -346,7 +383,8 @@ fn apply_camera_targets(
         source: rtt.image.clone(),
         params: PostProcessParams {
           intensity
-        }
+        },
+        shader: shader_handle
       }
     );
 

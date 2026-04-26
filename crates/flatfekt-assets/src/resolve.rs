@@ -425,4 +425,39 @@ pub mod bevy_load {
       .to_string();
     Ok(assets.load(rel))
   }
+
+  #[instrument(
+    level = "info",
+    skip_all
+  )]
+  pub fn load_glsl_shader(
+    assets: &AssetServer,
+    cfg: &RootConfig,
+    root: &Path,
+    shader: &AssetRef
+  ) -> Result<
+    Handle<Shader>,
+    AssetResolveError
+  > {
+    let abs = resolve_asset_path_cfg(
+      cfg, root, shader
+    )?;
+    let ext = abs
+      .extension()
+      .and_then(|e| e.to_str());
+    if !matches!(ext, Some("vert") | Some("frag") | Some("glsl"))
+    {
+      return Err(
+        AssetResolveError::WgslExtension(
+          abs.display().to_string()
+        )
+      );
+    }
+    let rel = abs
+      .strip_prefix(root)
+      .unwrap_or(&abs)
+      .to_string_lossy()
+      .to_string();
+    Ok(assets.load(rel))
+  }
 }

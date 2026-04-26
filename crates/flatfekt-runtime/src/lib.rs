@@ -505,14 +505,27 @@ pub fn build_app(
         &scene.scene.effects
       {
         for e in effects {
-          if let Ok(abs) =
-            flatfekt_assets::resolve::resolve_asset_path_cfg(
-              &cfg,
-              &root,
-              &e.wgsl,
-            )
-          {
-            watch_paths.push(abs);
+          if let Some(wgsl) = &e.wgsl {
+            if let Ok(abs) =
+              flatfekt_assets::resolve::resolve_asset_path_cfg(
+                &cfg,
+                &root,
+                wgsl,
+              )
+            {
+              watch_paths.push(abs);
+            }
+          }
+          if let Some(glsl) = &e.glsl {
+            if let Ok(abs) =
+              flatfekt_assets::resolve::resolve_asset_path_cfg(
+                &cfg,
+                &root,
+                glsl,
+              )
+            {
+              watch_paths.push(abs);
+            }
           }
         }
       }
@@ -1889,19 +1902,22 @@ pub fn hot_reload_system(
           &scene_res.0.scene.effects
         {
           for e in scene_effects {
-            if let Ok(abs) =
-              flatfekt_assets::resolve::resolve_asset_path_cfg(
-                &cfg.0,
-                &ar.0,
-                &e.wgsl,
-              )
-            {
-              let rel = abs
-                .strip_prefix(&ar.0)
-                .unwrap_or(&abs)
-                .to_string_lossy()
-                .to_string();
-              asset_server.reload(rel);
+            let shader = e.wgsl.as_ref().or(e.glsl.as_ref());
+            if let Some(shader) = shader {
+              if let Ok(abs) =
+                flatfekt_assets::resolve::resolve_asset_path_cfg(
+                  &cfg.0,
+                  &ar.0,
+                  shader,
+                )
+              {
+                let rel = abs
+                  .strip_prefix(&ar.0)
+                  .unwrap_or(&abs)
+                  .to_string_lossy()
+                  .to_string();
+                asset_server.reload(rel);
+              }
             }
           }
         }
