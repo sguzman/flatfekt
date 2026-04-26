@@ -1,0 +1,7 @@
+[scene]
+schema_version = "0.1"
+
+[[scene.entities]]
+id = "sprite_1"
+sprite = { image = "test_sprite.png", width = 100, height = 100 }
+transform = { x = 0, y = 0 }

@@ -37,7 +37,7 @@ fn init_tracing(
   level: Option<&str>,
   filter: Option<&str>,
   mode: &str
-) -> tracing_appender::non_blocking::WorkerGuard {
+) -> tracing_appender::non_blocking::WorkerGuard{
   use tracing_subscriber::prelude::*;
 
   let filter_str = filter
@@ -53,7 +53,8 @@ fn init_tracing(
     std::path::PathBuf::from(
       ".cache/flatfekt/logs"
     );
-  let _ = std::fs::create_dir_all(&log_dir);
+  let _ =
+    std::fs::create_dir_all(&log_dir);
 
   let file_appender =
     tracing_appender::rolling::hourly(
@@ -151,6 +152,12 @@ enum Commands {
       default_value = "60.0"
     )]
     fps:      f32
+  },
+  /// Play a baked simulation artifact
+  PlayBake {
+    /// Path to scene_playback.toml or
+    /// the bake directory
+    path: PathBuf
   }
 }
 
@@ -341,7 +348,8 @@ y = 0.0
       std::fs::write(&path, content)?;
       tracing::info!(
         "Created demo '{}' at {:?}",
-        name, path
+        name,
+        path
       );
     }
     | Commands::Bake {
@@ -355,6 +363,21 @@ y = 0.0
       flatfekt_runtime::run_bake(
         cfg, path, scene_file, output,
         duration, fps
+      )?;
+    }
+    | Commands::PlayBake {
+      path
+    } => {
+      let mut final_path = path.clone();
+      if final_path.is_dir() {
+        final_path = final_path
+          .join("scene_playback.toml");
+      }
+
+      let scene_file =
+        load_scene(&final_path)?;
+      flatfekt_runtime::run_play_bake(
+        cfg, final_path, scene_file
       )?;
     }
   }

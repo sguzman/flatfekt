@@ -183,9 +183,12 @@ impl Default for BakeRecorder {
 pub struct BakeSettings {
   pub bake_json_path:      PathBuf,
   pub scene_playback_path: PathBuf,
+  pub source_scene:
+    flatfekt_schema::SceneFile,
   pub playback:            BakePlayback,
   pub meta:                BakeMeta,
-  pub assets: Vec<BakeAsset>
+  pub assets: Vec<BakeAsset>,
+  pub assets_root:         PathBuf
 }
 
 pub fn xxhash64_hex(
@@ -513,18 +516,21 @@ pub fn bake_scene_to_dir(
     end_behavior: "stop".to_owned()
   };
 
+  let assets_root = flatfekt_assets::resolve::assets_root(&cfg)?;
   run_bake_app(
     cfg,
     scene_path.clone(),
-    scene_file,
+    scene_file.clone(),
     BakeSettings {
       bake_json_path: bake_json_path
         .clone(),
       scene_playback_path:
         scene_playback_path.clone(),
+      source_scene: scene_file.clone(),
       playback,
       meta,
-      assets
+      assets,
+      assets_root
     }
   )?;
 
@@ -951,14 +957,12 @@ fn bake_aggregate_scene_to_dir(
     run_bake_app(
       cfg.clone(),
       clip_path.clone(),
-      clip_scene,
+      clip_scene.clone(),
       BakeSettings {
-        bake_json_path:
-          clip_bake_path.clone(),
-        scene_playback_path:
-          scene_playback_path.clone(),
-        playback:            playback
-          .clone(),
+        bake_json_path:      clip_bake_path.clone(),
+        scene_playback_path: scene_playback_path.clone(),
+        source_scene:        clip_scene,
+        playback:            playback,
         meta:                BakeMeta {
           created_unix_secs,
           tool: "flatfekt".to_owned(),
@@ -969,10 +973,11 @@ fn bake_aggregate_scene_to_dir(
           source_scene_path: clip_path
             .display()
             .to_string(),
-          source_scene_xxhash64:
-            String::new()
+          source_scene_xxhash64: "0"
+            .to_owned()
         },
-        assets:              Vec::new()
+        assets:              Vec::new(),
+        assets_root:         flatfekt_assets::resolve::assets_root(&cfg)?
       }
     )?;
 
@@ -1580,6 +1585,9 @@ pub fn instantiate_scene_headless_for_bake(
         .clone()
         .unwrap_or_default();
       e.insert(Text2d::new(v));
+      e.insert(crate::FlatfektText {
+        font: text.font.clone()
+      });
     }
     if let Some(sprite) = &ent.sprite {
       let mut s = Sprite::default();
@@ -1602,6 +1610,9 @@ pub fn instantiate_scene_headless_for_bake(
           Some(Vec2::new(w, h));
       }
       e.insert(s);
+      e.insert(crate::FlatfektSprite {
+        image: sprite.image.clone()
+      });
     } else if let Some(shape) =
       &ent.shape
     {
@@ -1706,16 +1717,20 @@ fn record_initial_frame(
     Option<&Sprite>,
     Option<
       &MeshMaterial2d<ColorMaterial>
-    >
+    >,
+    Option<&crate::FlatfektSprite>,
+    Option<&crate::FlatfektText>
   )>,
-  mut recorder: ResMut<BakeRecorder>
+  mut recorder: ResMut<BakeRecorder>,
+  mut settings: ResMut<BakeSettings>
 ) {
   record_frame_at_time(
     0.0,
     &entity_map,
     materials.as_deref(),
     &query,
-    &mut recorder
+    &mut recorder,
+    &mut settings
   );
 }
 
@@ -1734,9 +1749,12 @@ pub fn bake_recording_system(
     Option<&Sprite>,
     Option<
       &MeshMaterial2d<ColorMaterial>
-    >
+    >,
+    Option<&crate::FlatfektSprite>,
+    Option<&crate::FlatfektText>
   )>,
-  mut recorder: ResMut<BakeRecorder>
+  mut recorder: ResMut<BakeRecorder>,
+  mut settings: ResMut<BakeSettings>
 ) {
   if !clock.enabled || !clock.playing {
     return;
@@ -1748,7 +1766,8 @@ pub fn bake_recording_system(
     &entity_map,
     materials.as_deref(),
     &query,
-    &mut recorder
+    &mut recorder,
+    &mut settings
   );
 }
 
@@ -1764,9 +1783,12 @@ fn record_frame_at_time(
     Option<&Sprite>,
     Option<
       &MeshMaterial2d<ColorMaterial>
-    >
+    >,
+    Option<&crate::FlatfektSprite>,
+    Option<&crate::FlatfektText>
   )>,
-  recorder: &mut BakeRecorder
+  recorder: &mut BakeRecorder,
+  _settings: &mut BakeSettings
 ) {
   for (id, entities) in
     entity_map.0.iter()
@@ -1775,11 +1797,84 @@ fn record_frame_at_time(
     else {
       continue;
     };
-    let Ok((tf, text, sprite, mat)) =
-      query.get(*entity)
+    let Ok((
+      tf,
+      text,
+      sprite,
+      mat,
+      ff_sprite,
+      ff_text
+    )) = query.get(*entity)
     else {
       continue;
     };
+
+    // Record assets
+    if let Some(ff_s) = ff_sprite {
+      let path_str = ff_s
+        .image
+        .as_path()
+        .map(|p| {
+          p.to_string_lossy()
+            .to_string()
+        })
+        .unwrap_or_default();
+      if !path_str.is_empty()
+        && !recorder
+          .data
+          .assets
+          .iter()
+          .any(|a| {
+            a.original_ref == path_str
+          })
+      {
+        recorder.data.assets.push(
+          BakeAsset {
+            role:          "image"
+              .to_string(),
+            original_ref:  path_str,
+            packaged_path: String::new(
+            ),
+            sha256:        String::new(
+            ),
+            bytes:         0
+          }
+        );
+      }
+    }
+    if let Some(ff_t) = ff_text {
+      if let Some(font) = &ff_t.font {
+        let path_str = font
+          .as_path()
+          .map(|p| {
+            p.to_string_lossy()
+              .to_string()
+          })
+          .unwrap_or_default();
+        if !path_str.is_empty()
+          && !recorder
+            .data
+            .assets
+            .iter()
+            .any(|a| {
+              a.original_ref == path_str
+            })
+        {
+          recorder.data.assets.push(
+            BakeAsset {
+              role:          "font"
+                .to_string(),
+              original_ref:  path_str,
+              packaged_path:
+                String::new(),
+              sha256:
+                String::new(),
+              bytes:         0
+            }
+          );
+        }
+      }
+    }
 
     let entry = recorder
       .data
@@ -2074,11 +2169,11 @@ fn bake_apply_patch_to_world_system(
 }
 
 #[instrument(level = "info", skip_all)]
-fn exit_and_save_on_duration(
+pub fn exit_and_save_on_duration(
   clock: Res<
     crate::simulation::SimulationClock
   >,
-  recorder: Res<BakeRecorder>,
+  mut recorder: ResMut<BakeRecorder>,
   settings: Res<BakeSettings>,
   mut exit: MessageWriter<
     bevy::app::AppExit
@@ -2093,14 +2188,15 @@ fn exit_and_save_on_duration(
     return;
   }
 
-  match save_bake(
-    &recorder,
-    &settings.bake_json_path
+  match promote_bake_to_artifact(
+    &mut recorder,
+    &settings
   ) {
     | Ok(()) => {
       tracing::info!(
-        path = %settings.bake_json_path.display(),
-        "bake saved"
+        json = %settings.bake_json_path.display(),
+        playback = %settings.scene_playback_path.display(),
+        "bake artifacts promoted"
       );
       exit.write(
         bevy::app::AppExit::Success
@@ -2134,6 +2230,150 @@ pub fn save_bake(
         path.display()
       )
     })?;
+  Ok(())
+}
+
+pub fn promote_bake_to_artifact(
+  recorder: &mut BakeRecorder,
+  settings: &BakeSettings
+) -> anyhow::Result<()> {
+  let bake_dir = settings
+    .bake_json_path
+    .parent()
+    .unwrap_or(Path::new("."));
+  let assets_dest =
+    bake_dir.join(BAKE_ASSETS_DIR);
+
+  // 1. Resolve asset metadata and copy
+  //    files
+  if !recorder.data.assets.is_empty() {
+    std::fs::create_dir_all(
+      &assets_dest
+    )?;
+
+    for asset in
+      recorder.data.assets.iter_mut()
+    {
+      let src = settings
+        .assets_root
+        .join(&asset.original_ref);
+      if src.exists() {
+        let bytes =
+          std::fs::read(&src)?;
+        let hash = xxhash64_hex(&bytes);
+        let ext = src
+          .extension()
+          .and_then(|e| e.to_str())
+          .unwrap_or("bin");
+        let packaged_name =
+          format!("{}.{}", hash, ext);
+
+        asset.sha256 =
+          Sha256::digest(&bytes)
+            .iter()
+            .map(|b| {
+              format!("{:02x}", b)
+            })
+            .collect();
+        asset.bytes =
+          bytes.len() as u64;
+        asset.packaged_path = format!(
+          "{}/{}",
+          BAKE_ASSETS_DIR,
+          packaged_name
+        );
+
+        let dest = assets_dest
+          .join(&packaged_name);
+        if !dest.exists() {
+          std::fs::copy(src, dest)?;
+        }
+      }
+    }
+  }
+
+  // 2. Save the main bake JSON
+  save_bake(
+    recorder,
+    &settings.bake_json_path
+  )?;
+
+  // 3. Generate and save the
+  //    scene_playback.toml
+  let mut playback_scene =
+    settings.source_scene.clone();
+
+  // Set the baked path relative to the
+  // playback TOML if possible
+  if let (
+    Some(playback_parent),
+    Some(json_parent)
+  ) = (
+    settings
+      .scene_playback_path
+      .parent(),
+    settings.bake_json_path.parent()
+  ) {
+    if playback_parent == json_parent {
+      playback_scene.scene.baked =
+        settings
+          .bake_json_path
+          .file_name()
+          .map(|n| PathBuf::from(n));
+    } else {
+      // Try to make it relative
+      if let Ok(rel) = settings
+        .bake_json_path
+        .strip_prefix(playback_parent)
+      {
+        playback_scene.scene.baked =
+          Some(rel.to_path_buf());
+      } else {
+        playback_scene.scene.baked =
+          Some(
+            settings
+              .bake_json_path
+              .clone()
+          );
+      }
+    }
+  } else {
+    playback_scene.scene.baked = Some(
+      settings.bake_json_path.clone()
+    );
+  }
+
+  // Disable simulation in the playback
+  // scene by removing the spec
+  playback_scene.scene.simulation =
+    None;
+
+  let toml = toml::to_string_pretty(
+    &playback_scene
+  )
+  .context(
+    "serialize playback scene toml"
+  )?;
+
+  if let Some(parent) = settings
+    .scene_playback_path
+    .parent()
+  {
+    std::fs::create_dir_all(parent)?;
+  }
+  std::fs::write(
+    &settings.scene_playback_path,
+    toml
+  )
+  .with_context(|| {
+    format!(
+      "write playback scene {}",
+      settings
+        .scene_playback_path
+        .display()
+    )
+  })?;
+
   Ok(())
 }
 

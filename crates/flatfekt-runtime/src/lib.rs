@@ -22,6 +22,7 @@ use flatfekt_config::{
   RootConfig
 };
 use flatfekt_schema::{
+  AssetRef,
   ColorRgba,
   SceneError,
   SceneFile,
@@ -29,6 +30,16 @@ use flatfekt_schema::{
 };
 use serde::Serialize;
 use tracing::instrument;
+
+#[derive(Component, Debug, Clone)]
+pub struct FlatfektSprite {
+  pub image: AssetRef
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct FlatfektText {
+  pub font: Option<AssetRef>
+}
 
 #[derive(
   Debug,
@@ -598,8 +609,39 @@ pub fn run_bevy(
   Ok(())
 }
 
+pub fn run_play_bake(
+  mut cfg: RootConfig,
+  scene_path: PathBuf,
+  scene: SceneFile
+) -> Result<(), RuntimeError> {
+  // Force playback mode
+  cfg
+    .runtime
+    .get_or_insert_with(
+      Default::default
+    )
+    .playback
+    .get_or_insert_with(
+      Default::default
+    )
+    .prefer_baked_over_simulation =
+    Some(true);
+
+  // Ensure simulation is disabled
+  cfg
+    .simulation
+    .get_or_insert_with(
+      Default::default
+    )
+    .enabled = Some(false);
+
+  build_app(cfg, scene_path, scene)?
+    .run();
+  Ok(())
+}
+
 #[instrument(level = "info", skip_all)]
-pub(crate) fn init_timeline_clock(
+pub fn init_timeline_clock(
   cfg: Res<ConfigRes>,
   scene: Res<SceneRes>,
   mut clock: ResMut<TimelineClock>
@@ -1107,8 +1149,11 @@ fn spawn_sprite(
         sprite.color =
           Color::Srgba(srgba);
       }
-      let mut entity =
-        commands.spawn((sprite, tf));
+      let mut entity = commands.spawn(
+        (sprite, tf, FlatfektSprite {
+          image: spec.image.clone()
+        })
+      );
       insert_physics(
         &mut entity,
         cfg,
@@ -1219,7 +1264,10 @@ fn spawn_text(
     TextLayout::new_with_justify(
       justify
     ),
-    tf
+    tf,
+    FlatfektText {
+      font: spec.font.clone()
+    }
   ));
 
   if let Some(c) = spec.color {
@@ -2380,18 +2428,21 @@ pub fn run_bake(
     bevy::gizmos::GizmoPlugin
   ));
 
-  app.insert_resource(ConfigRes(cfg));
+  app.insert_resource(ConfigRes(
+    cfg.clone()
+  ));
   app.insert_resource(ScenePathRes(
-    scene_path
+    scene_path.clone()
   ));
   app.insert_resource(SceneRes(
-    scene_file
+    scene_file.clone()
   ));
   app.insert_resource(AssetsRootRes(
     root
   ));
 
-  // Core simulation resources and message registration.
+  // Core simulation resources and
+  // message registration.
   app
     .configure_sets(Startup, FlatfektSet::Instantiate)
     .configure_sets(Update, FlatfektSet::SimTick)
@@ -2414,8 +2465,12 @@ pub fn run_bake(
     .add_message::<bevy::app::AppExit>()
     .init_asset::<ColorMaterial>();
 
-  // Add simulation and scene management systems.
-  app.add_systems(Startup, simulation::init_simulation);
+  // Add simulation and scene management
+  // systems.
+  app.add_systems(
+    Startup,
+    simulation::init_simulation
+  );
   app.add_systems(
     Startup,
     (
@@ -2428,7 +2483,8 @@ pub fn run_bake(
 
   app.add_systems(
     Update,
-    simulation::simulation_driver.in_set(FlatfektSet::SimTick)
+    simulation::simulation_driver
+      .in_set(FlatfektSet::SimTick)
   );
 
   app.add_systems(
@@ -2444,41 +2500,81 @@ pub fn run_bake(
       .after(simulation::simulation_driver)
   );
 
+  // Determine bake paths
+  let (
+    bake_json_path,
+    scene_playback_path
+  ) = if output_path
+    .extension()
+    .is_some()
+  {
+    // Looks like a single file output
+    (
+      output_path.clone(),
+      output_path
+        .with_extension("toml")
+    )
+  } else {
+    // Looks like a directory output
+    let _ = std::fs::create_dir_all(
+      &output_path
+    );
+    (
+      output_path.join("bake.json"),
+      output_path
+        .join("scene_playback.toml")
+    )
+  };
+
+  let playback = bake::BakePlayback {
+    fps,
+    dt_secs: 1.0 / fps,
+    duration_secs: duration,
+    loop_mode: "stop".to_owned(),
+    end_behavior: "stop".to_owned()
+  };
+
+  let meta = bake::BakeMeta {
+    created_unix_secs:
+      std::time::SystemTime::now()
+        .duration_since(
+          std::time::UNIX_EPOCH
+        )
+        .unwrap_or_default()
+        .as_secs(),
+    tool:                  "flatfekt"
+      .to_owned(),
+    tool_version:          env!(
+      "CARGO_PKG_VERSION"
+    )
+    .to_owned(),
+    source_scene_path:     scene_path
+      .display()
+      .to_string(),
+    source_scene_xxhash64: "0"
+      .to_owned() /* TODO: compute hash if needed */
+  };
+
+  app.insert_resource(bake::BakeSettings {
+    bake_json_path,
+    scene_playback_path,
+    source_scene: scene_file.clone(),
+    playback,
+    meta,
+    assets: Vec::new(),
+    assets_root: flatfekt_assets::resolve::assets_root(&cfg).unwrap_or_default(),
+  });
+
   // Bake recording and auto-exit logic.
   app.init_resource::<bake::BakeRecorder>();
   app.add_systems(
     Update,
-    bake::bake_recording_system
-      .after(simulation::entity_collision_system)
-  );
-
-  app.add_systems(
-    Update,
-    move |clock: Res<simulation::SimulationClock>,
-          recorder: Res<bake::BakeRecorder>,
-          mut exit: MessageWriter<bevy::app::AppExit>| {
-      if clock.t_secs >= duration {
-        tracing::info!(
-          t = clock.t_secs,
-          "bake duration reached, saving..."
-        );
-        
-        if let Some(parent) = output_path.parent() {
-          let _ = std::fs::create_dir_all(parent);
-        }
-
-        if let Err(err) = bake::save_bake(&recorder, &output_path) {
-          tracing::error!(error = %err, "failed to save bake");
-          exit.write(bevy::app::AppExit::error());
-        } else {
-          tracing::info!(
-            path = %output_path.display(),
-            "bake saved successfully"
-          );
-          exit.write(bevy::app::AppExit::Success);
-        }
-      }
-    }
+    (
+      bake::bake_recording_system
+        .after(simulation::entity_collision_system),
+      bake::exit_and_save_on_duration
+        .after(bake::bake_recording_system),
+    )
   );
 
   app.run();
