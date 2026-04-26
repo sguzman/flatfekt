@@ -133,6 +133,7 @@ pub struct Scene {
     Option<BackgroundSpec>,
   pub playback: Option<PlaybackSpec>,
   pub effects: Option<Vec<EffectSpec>>,
+  pub active_effect_id: Option<String>,
   pub defaults: Option<DefaultsSpec>,
   #[serde(default)]
   pub templates:

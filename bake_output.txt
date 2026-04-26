@@ -1,0 +1,45 @@
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
+[1m[92m     Running[0m `target/debug/flatfekt bake scenes/shader_test_glsl.toml --duration-secs 1`
+[2m2026-04-26T14:05:23.438958Z[0m [32m INFO[0m [1mbake_scene_to_dir[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m packaging asset [3mrole[0m[2m=[0m"glsl" [3moriginal[0m[2m=[0m"flatfekt/shaders/grayscale.frag"
+[2m2026-04-26T14:05:23.439045Z[0m [32m INFO[0m [1mbake_scene_to_dir[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m rewriting asset path [3mpackaged_path[0m[2m=[0m"assets/flatfekt/shaders/grayscale.frag"
+[2m2026-04-26T14:05:23.439194Z[0m [32m INFO[0m [1mbake_scene_to_dir[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m packaging asset [3mrole[0m[2m=[0m"image" [3moriginal[0m[2m=[0m"test_sprite.png"
+[2m2026-04-26T14:05:23.439241Z[0m [32m INFO[0m [1mbake_scene_to_dir[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m rewriting asset path [3mpackaged_path[0m[2m=[0m"assets/test_sprite.png"
+[2m2026-04-26T14:05:23.447855Z[0m [32m INFO[0m [1mbake_scene_to_dir[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m packaged scene assets [3mpackaged[0m[2m=[0m3
+[2m2026-04-26T14:05:23.447907Z[0m [32m INFO[0m [1mbake_scene_to_dir[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m scene_playback updated [3mscene[0m[2m=[0mScene { schema_version: "0.1", resolution: None, sequence: None, camera: Some(CameraSpec { x: None, y: None, zoom: None, scaling_mode: Some("window_size"), clear_color: None }), background: None, playback: Some(PlaybackSpec { duration_secs: Some(1.0), loop_mode: Some("stop"), allow_user_input: None, allow_scrub: None, allow_rewind: None, enable_introspection: None, target_fps: None }), effects: Some([EffectSpec { id: "grayscale", wgsl: None, glsl: Some(String("assets/flatfekt/shaders/grayscale.frag")), params: None }]), defaults: None, templates: {}, timeline: None, simulation: None, interaction: None, export: None, generators: None, baked: Some("bake.json"), entities: [EntitySpec { id: "test_sprite", extends: None, activation: None, tags: None, transform: Some(Transform2d { x: 0.0, y: 0.0, rotation: None, scale: Some(1.0), z: None }), sprite: Some(SpriteSpec { image: String("assets/test_sprite.png"), width: None, height: None, anchor: None, tint: None, opacity: None, effect_id: None }), text: None, shape: None, physics: None, collider: None, particles: None, interaction: None, agent: None, script: None, grid: None }] }
+[2m2026-04-26T14:05:23.448049Z[0m [32m INFO[0m [1mbake_scene_to_dir[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m generated scene_playback.toml [3mtoml[0m[2m=[0m[scene]
+schema_version = "0.1"
+baked = "bake.json"
+
+[scene.camera]
+scaling_mode = "window_size"
+
+[scene.playback]
+duration_secs = 1.0
+loop_mode = "stop"
+
+[[scene.effects]]
+id = "grayscale"
+glsl = "assets/flatfekt/shaders/grayscale.frag"
+
+[scene.templates]
+
+[[scene.entities]]
+id = "test_sprite"
+
+[scene.entities.transform]
+x = 0.0
+y = 0.0
+scale = 1.0
+
+[scene.entities.sprite]
+image = "assets/test_sprite.png"
+
+[2m2026-04-26T14:05:23.462727Z[0m [32m INFO[0m [1minit_bake_recorder[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m initialized bake recorder [3mbake_json_path[0m[2m=[0m.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577/bake.json [3mscene_playback_path[0m[2m=[0m.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577/scene_playback.toml
+[2m2026-04-26T14:05:23.462927Z[0m [32m INFO[0m [1minit_simulation[0m[2m:[0m [2mflatfekt_runtime::simulation[0m[2m:[0m init_simulation: checking config [3msim_cfg[0m[2m=[0mSome(SimulationConfig { backend: Some("native"), enabled: Some(true), deterministic: Some(true), fixed_dt_secs: Some(0.016666668), max_catchup_steps: Some(4), seed: Some(0), playing: Some(true), time_scale: Some(1.0) })
+[2m2026-04-26T14:05:23.463011Z[0m [32m INFO[0m [1minit_simulation[0m[2m:[0m [2mflatfekt_runtime::simulation[0m[2m:[0m initialized simulation [3mclock[0m[2m=[0mResMut(SimulationClock { enabled: true, playing: true, t_secs: 0.0, dt_secs: 0.016666668, max_catchup_steps: 4, accumulator_secs: 0.0, steps_total: 0, time_scale: 1.0 }) [3mregion[0m[2m=[0mResMut(SimRegionRes { gravity: Vec2(0.0, -9.81), bounds: None, time_scale: 1.0 }) [3mseed[0m[2m=[0m0 [3mpolicy[0m[2m=[0mResMut(DeterminismPolicyRes { enabled: true, notes: ["fixed_dt_secs=0.016666668", "max_catchup_steps=4", "seed=0", "backend=native", "native systems apply in Entity-sorted order"] })
+[2m2026-04-26T14:05:23.463186Z[0m [32m INFO[0m [1minit_timeline_clock[0m[2m:[0m [2mflatfekt_runtime[0m[2m:[0m initialized timeline clock [3mclock[0m[2m=[0mResMut(TimelineClock { enabled: true, playing: true, t_secs: 0.0, dt_secs: 0.016666668, max_catchup_steps: 4, accumulator_secs: 0.0, duration_secs: None, loop_mode: Stop, step_once: false })
+[2m2026-04-26T14:05:23.463333Z[0m [32m INFO[0m [1minit_timeline_plan[0m[2m:[0m [2mflatfekt_runtime::animation[0m[2m:[0m scene has no timeline; no events planned
+[2m2026-04-26T14:05:23.463437Z[0m [32m INFO[0m [1minstantiate_scene_headless_for_bake[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m instantiating scene for bake (headless) [3mentities[0m[2m=[0m1
+[2m2026-04-26T14:05:24.493845Z[0m [32m INFO[0m [1mexit_and_save_on_duration[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m bake artifacts promoted [3mjson[0m[2m=[0m.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577/bake.json [3mplayback[0m[2m=[0m.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577/scene_playback.toml
+.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577
+[2m2026-04-26T14:05:24.494849Z[0m [32m INFO[0m [2mflatfekt[0m[2m:[0m bake complete [3mdir[0m[2m=[0m.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577 [3mbake_json[0m[2m=[0m.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577/bake.json [3mplayback_scene[0m[2m=[0m.cache/flatfekt/scene/shader_test_glsl/bakes/c3d08b8601792949/run-1777212323-122577/scene_playback.toml

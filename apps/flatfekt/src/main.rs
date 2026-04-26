@@ -787,6 +787,7 @@ fn resolve_export_input(
 
     tracing::info!(
       scene = %scene_path.display(),
+      copy_assets = bake_req.copy_assets,
       "auto-baking scene for export"
     );
     let bake_out =

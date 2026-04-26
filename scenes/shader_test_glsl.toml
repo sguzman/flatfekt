@@ -1,5 +1,6 @@
 [scene]
 schema_version = "0.1"
+active_effect_id = "grayscale"
 
 [scene.camera]
 scaling_mode = "window_size"
@@ -11,7 +12,7 @@ glsl = "flatfekt/shaders/grayscale.frag"
 [[scene.entities]]
 id = "test_sprite"
 [scene.entities.sprite]
-image = "test_sprite.png"
+image = "test_sprite.jpg"
 
 [scene.entities.transform]
 x = 0.0

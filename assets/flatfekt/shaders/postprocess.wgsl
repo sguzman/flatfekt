@@ -4,31 +4,30 @@
 // as assets, but this baseline fullscreen pass uses a stable built-in shader
 // path to keep the runtime simple while still providing “shader hooks”.
 
-@group(1) @binding(0) var src_tex: texture_2d<f32>;
-@group(1) @binding(1) var src_samp: sampler;
-
 struct Params {
   intensity: f32,
 };
 
-@group(1) @binding(2) var<uniform> params: Params;
+@group(2) @binding(0) var<uniform> params: Params;
+@group(2) @binding(1) var src_tex: texture_2d<f32>;
+@group(2) @binding(2) var src_samp: sampler;
 
 struct VsOut {
   @builtin(position) pos: vec4<f32>,
-  @location(0) uv: vec2<f32>,
+  @location(0) @interpolate(perspective) v_Uv: vec2<f32>,
 };
 
 @vertex
-fn vs_main(@location(0) pos: vec2<f32>, @location(1) uv: vec2<f32>) -> VsOut {
+fn vertex(@location(0) pos: vec3<f32>, @location(1) uv: vec2<f32>) -> VsOut {
   var out: VsOut;
-  out.pos = vec4<f32>(pos, 0.0, 1.0);
-  out.uv = uv;
+  out.pos = vec4<f32>(pos.x, pos.y, 0.0, 1.0);
+  out.v_Uv = uv;
   return out;
 }
 
 @fragment
-fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
-  let c = textureSample(src_tex, src_samp, in.uv);
+fn fragment(in: VsOut) -> @location(0) vec4<f32> {
+  let c = textureSample(src_tex, src_samp, in.v_Uv);
   // Simple identity with optional fade-to-black.
   let t = clamp(params.intensity, 0.0, 1.0);
   return vec4<f32>(c.rgb * t, c.a);

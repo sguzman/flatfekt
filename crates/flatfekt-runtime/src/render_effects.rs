@@ -48,11 +48,11 @@ pub struct PostProcessKey {
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 #[bind_group_data(PostProcessKey)]
 pub struct PostProcessMaterial {
-  #[texture(0)]
-  #[sampler(1)]
-  pub source: Handle<Image>,
-  #[uniform(2)]
+  #[uniform(0)]
   pub params: PostProcessParams,
+  #[texture(1)]
+  #[sampler(2)]
+  pub source: Handle<Image>,
   pub shader: Handle<Shader>
 }
 
@@ -74,6 +74,11 @@ pub struct PostProcessParams {
 impl Material2d
   for PostProcessMaterial
 {
+  fn vertex_shader() -> ShaderRef {
+    "flatfekt/shaders/postprocess.wgsl"
+      .into()
+  }
+
   fn fragment_shader() -> ShaderRef {
     "flatfekt/shaders/postprocess.wgsl"
       .into()
@@ -84,6 +89,7 @@ impl Material2d
     _layout: &MeshVertexBufferLayoutRef,
     key: Material2dKey<Self>,
   ) -> Result<(), SpecializedMeshPipelineError> {
+    tracing::info!(shader = ?key.bind_group_data.shader, "specializing post process material shader");
     descriptor.fragment.as_mut().unwrap().shader =
       key.bind_group_data.shader.clone();
     Ok(())
@@ -330,21 +336,25 @@ fn apply_camera_targets(
     let mut shader_handle: Handle<Shader> =
       asset_server.load("flatfekt/shaders/postprocess.wgsl");
 
-    if let (
-      Some(scene),
-      Some(global_id)
-    ) = (
-      scene.as_deref(),
-      effects
-        .global_effect_id
-        .as_deref()
-    ) {
+    let global_id = scene
+      .as_ref()
+      .and_then(|s| {
+        s.0.scene.active_effect_id.as_deref()
+      })
+      .or_else(|| {
+        effects
+          .global_effect_id
+          .as_deref()
+      });
+
+    if let (Some(scene), Some(id)) =
+      (scene.as_deref(), global_id)
+    {
       if let Some(list) =
         &scene.0.scene.effects
       {
-        if let Some(effect) = list
-          .iter()
-          .find(|e| e.id == global_id)
+        if let Some(effect) =
+          list.iter().find(|e| e.id == id)
         {
           if let Some(params) =
             &effect.params
@@ -365,14 +375,20 @@ fn apply_camera_targets(
               &cfg.as_deref().unwrap().0,
               &assets_root.as_deref().unwrap().0,
               wgsl,
-            ).unwrap_or(shader_handle);
+            ).unwrap_or_else(|e| {
+              tracing::error!(error = ?e, path = ?wgsl, "failed to load wgsl shader");
+              shader_handle
+            });
           } else if let Some(glsl) = &effect.glsl {
             shader_handle = flatfekt_assets::resolve::bevy_load::load_glsl_shader(
               &asset_server,
               &cfg.as_deref().unwrap().0,
               &assets_root.as_deref().unwrap().0,
               glsl,
-            ).unwrap_or(shader_handle);
+            ).unwrap_or_else(|e| {
+              tracing::error!(error = ?e, path = ?glsl, "failed to load glsl shader");
+              shader_handle
+            });
           }
         }
       }
@@ -403,6 +419,7 @@ fn apply_camera_targets(
       Camera2d,
       Camera {
         order: 1,
+        clear_color: ClearColorConfig::Custom(Color::srgb(0.0, 1.0, 0.0)),
         ..default()
       },
       RenderTarget::Window(

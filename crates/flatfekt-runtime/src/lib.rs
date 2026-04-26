@@ -429,7 +429,12 @@ pub fn build_app(
   scene_path: PathBuf,
   scene: SceneFile
 ) -> Result<App, RuntimeError> {
-  let root = assets_root(&cfg)?;
+  let mut root = assets_root(&cfg)?;
+  if root.is_relative() {
+    if let Ok(abs) = std::env::current_dir().map(|d| d.join(&root)) {
+      root = abs;
+    }
+  }
   let mut app = App::new();
 
   let scene_res = scene
@@ -569,7 +574,7 @@ pub fn build_app(
     ))
     .insert_resource(SceneRes(scene))
     .insert_resource(AssetsRootRes(
-      root
+      root.clone()
     ))
     .add_plugins(FlatfektRuntimePlugin);
 
@@ -581,22 +586,18 @@ pub fn build_app(
   // be fatal depending on build
   // settings). We intentionally disable
   // it and rely on our tracing setup.
-  let mut plugins =
-    DefaultPlugins.build();
-  let mut window =
-    bevy::window::Window::default();
-  window.resolution =
-    bevy::window::WindowResolution::new(
-      win_w, win_h
-    );
-  plugins = plugins.set(
-    bevy::window::WindowPlugin {
-      primary_window: Some(window),
-      ..default()
-    }
-  );
-  plugins = plugins
-    .disable::<bevy::log::LogPlugin>();
+  let mut plugins = DefaultPlugins.build();
+  plugins = plugins.set(bevy::asset::AssetPlugin {
+    file_path: root.to_string_lossy().to_string(),
+    ..default()
+  });
+  let mut window = bevy::window::Window::default();
+  window.resolution = bevy::window::WindowResolution::new(win_w, win_h);
+  plugins = plugins.set(bevy::window::WindowPlugin {
+    primary_window: Some(window),
+    ..default()
+  });
+  plugins = plugins.disable::<bevy::log::LogPlugin>();
   app.add_plugins(plugins);
 
   if app
@@ -851,6 +852,7 @@ fn instantiate_scene(
   if let Some(rtt) = effects_rtt {
     camera.insert(Camera {
       order: 0,
+      clear_color: ClearColorConfig::Custom(Color::srgb(1.0, 0.0, 0.0)),
       ..default()
     });
     camera.insert(
@@ -2438,10 +2440,13 @@ pub fn run_bake(
   ));
   app.add_plugins((
     bevy::transform::TransformPlugin,
-    bevy::asset::AssetPlugin::default(),
+    bevy::asset::AssetPlugin {
+      file_path: root.to_string_lossy().to_string(),
+      ..default()
+    },
     bevy::input::InputPlugin,
     bevy::text::TextPlugin,
-    bevy::gizmos::GizmoPlugin
+    bevy::gizmos::GizmoPlugin,
   ));
 
   app.insert_resource(ConfigRes(
