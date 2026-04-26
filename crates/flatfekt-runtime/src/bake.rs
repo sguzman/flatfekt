@@ -1734,7 +1734,7 @@ fn record_initial_frame(
   );
 }
 
-#[instrument(level = "info", skip_all)]
+#[instrument(level = "debug", skip_all)]
 pub fn bake_recording_system(
   clock: Res<
     crate::simulation::SimulationClock
@@ -2452,7 +2452,7 @@ pub fn init_baked_simulation(
   }
 }
 
-#[instrument(level = "trace", skip_all)]
+#[instrument(level = "debug", skip_all)]
 pub fn replay_baked_system(
   clock: Res<crate::TimelineClock>,
   agg: Option<
