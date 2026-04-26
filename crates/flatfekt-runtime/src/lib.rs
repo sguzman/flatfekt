@@ -2376,8 +2376,6 @@ pub fn run_bake(
     bevy::transform::TransformPlugin,
     bevy::asset::AssetPlugin::default(),
     bevy::input::InputPlugin,
-    bevy::mesh::MeshPlugin,
-    bevy::sprite::SpritePlugin,
     bevy::text::TextPlugin,
     bevy::gizmos::GizmoPlugin
   ));
@@ -2393,50 +2391,60 @@ pub fn run_bake(
     root
   ));
 
-  // Messages used by simulation
-  // stepping.
-  app
-    .add_message::<simulation::SimTick>(
-    );
-
-  // Minimal scene + simulation stack
-  // (avoid window/input systems).
+  // Core simulation resources and message registration.
   app
     .configure_sets(Startup, FlatfektSet::Instantiate)
     .configure_sets(Update, FlatfektSet::SimTick)
     .init_resource::<SpawnedEntities>()
     .init_resource::<EntityMap>()
+    .init_resource::<AssetsCacheRes>()
+    .init_resource::<TimelineClock>()
     .init_resource::<simulation::SimulationClock>()
     .init_resource::<simulation::SimulationSeed>()
     .init_resource::<simulation::SimRegionRes>()
     .init_resource::<animation::TimelinePlan>()
-    .init_asset::<ColorMaterial>()
-    .add_systems(
-      Startup,
-      simulation::init_simulation,
-    )
-    .add_systems(
-      Startup,
-      bake::instantiate_scene_headless_for_bake
-        .in_set(FlatfektSet::Instantiate),
-    )
-    .add_systems(
-      Update,
-      simulation::simulation_driver.in_set(FlatfektSet::SimTick),
-    )
-    .add_systems(
-      Update,
-      (
-        simulation::gravity_system,
-        simulation::bounds_collision_system,
-        simulation::entity_collision_system,
-        simulation::particle_system_tick,
-        simulation::grid_tick,
-      )
-        .in_set(FlatfektSet::SimTick)
-        .after(simulation::simulation_driver),
-    );
+    .init_resource::<simulation::DeterminismPolicyRes>()
+    .add_message::<ResetScene>()
+    .add_message::<ApplyPatch>()
+    .add_message::<TransitionScene>()
+    .add_message::<SnapshotScene>()
+    .add_message::<RequestScreenshot>()
+    .add_message::<SeekTimeline>()
+    .add_message::<simulation::SimTick>()
+    .add_message::<bevy::app::AppExit>()
+    .init_asset::<ColorMaterial>();
 
+  // Add simulation and scene management systems.
+  app.add_systems(Startup, simulation::init_simulation);
+  app.add_systems(
+    Startup,
+    (
+      init_timeline_clock,
+      bake::instantiate_scene_headless_for_bake
+        .in_set(FlatfektSet::Instantiate)
+        .after(init_timeline_clock),
+    )
+  );
+
+  app.add_systems(
+    Update,
+    simulation::simulation_driver.in_set(FlatfektSet::SimTick)
+  );
+
+  app.add_systems(
+    Update,
+    (
+      simulation::gravity_system,
+      simulation::bounds_collision_system,
+      simulation::entity_collision_system,
+      simulation::particle_system_tick,
+      simulation::grid_tick,
+    )
+      .in_set(FlatfektSet::SimTick)
+      .after(simulation::simulation_driver)
+  );
+
+  // Bake recording and auto-exit logic.
   app.init_resource::<bake::BakeRecorder>();
   app.add_systems(
     Update,
@@ -2446,24 +2454,29 @@ pub fn run_bake(
 
   app.add_systems(
     Update,
-    move |clock: Res<
-      simulation::SimulationClock
-    >,
-          recorder: Res<
-      bake::BakeRecorder
-    >,
-          mut exit: MessageWriter<
-      bevy::app::AppExit
-    >| {
+    move |clock: Res<simulation::SimulationClock>,
+          recorder: Res<bake::BakeRecorder>,
+          mut exit: MessageWriter<bevy::app::AppExit>| {
       if clock.t_secs >= duration {
-        bake::save_bake(
-          &recorder,
-          &output_path
-        )
-        .unwrap();
-        exit.write(
-          bevy::app::AppExit::Success
+        tracing::info!(
+          t = clock.t_secs,
+          "bake duration reached, saving..."
         );
+        
+        if let Some(parent) = output_path.parent() {
+          let _ = std::fs::create_dir_all(parent);
+        }
+
+        if let Err(err) = bake::save_bake(&recorder, &output_path) {
+          tracing::error!(error = %err, "failed to save bake");
+          exit.write(bevy::app::AppExit::error());
+        } else {
+          tracing::info!(
+            path = %output_path.display(),
+            "bake saved successfully"
+          );
+          exit.write(bevy::app::AppExit::Success);
+        }
       }
     }
   );

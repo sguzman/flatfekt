@@ -1,0 +1,238 @@
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 0.19s
+[1m[92m     Running[0m `target/debug/flatfekt-cli bake scenes/physics_test.toml .cache/flatfekt/bake_test`
+[2m2026-04-25T20:11:10.583272Z[0m [32m INFO[0m [1minstantiate_scene_headless_for_bake[0m[2m:[0m [2mflatfekt_runtime::bake[0m[2m:[0m instantiating scene for bake (headless) [3mentities[0m[2m=[0m2
+[2m2026-04-25T20:11:10.583312Z[0m [32m INFO[0m [1minit_simulation[0m[2m:[0m [2mflatfekt_runtime::simulation[0m[2m:[0m init_simulation: checking config [3msim_cfg[0m[2m=[0mSome(SimulationConfig { backend: Some("native"), enabled: Some(true), deterministic: Some(true), fixed_dt_secs: Some(0.016666668), max_catchup_steps: Some(4), seed: Some(0), playing: Some(true), time_scale: Some(1.0) })
+[2m2026-04-25T20:11:10.583407Z[0m [32m INFO[0m [1minit_simulation[0m[2m:[0m [2mflatfekt_runtime::simulation[0m[2m:[0m initialized simulation [3mclock[0m[2m=[0mResMut(SimulationClock { enabled: true, playing: true, t_secs: 0.0, dt_secs: 0.016666668, max_catchup_steps: 4, accumulator_secs: 0.0, steps_total: 0, time_scale: 1.0 }) [3mregion[0m[2m=[0mResMut(SimRegionRes { gravity: Vec2(0.0, -20.0), bounds: Some(Rect { min: Vec2(-100.0, -100.0), max: Vec2(100.0, 100.0) }), time_scale: 1.0 }) [3mseed[0m[2m=[0m0 [3mpolicy[0m[2m=[0mResMut(DeterminismPolicyRes { enabled: true, notes: ["fixed_dt_secs=0.016666668", "max_catchup_steps=4", "seed=0", "backend=native", "native systems apply in Entity-sorted order"] })
+
+thread 'main' (179664) panicked at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/error/handler.rs:125:1:
+Encountered an error in system `<Enable the debug feature to see the name>`: Parameter `<Enable the debug feature to see the name>` failed validation: Resource does not exist
+If this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `If<T>` to skip the system when it happens.
+   0: <bevy_ecs::error::bevy_error::BevyError as core::convert::From<bevy_ecs::system::system_param::SystemParamValidationError>>::from
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/error/bevy_error.rs:115:28
+   1: <bevy_ecs::system::system_param::SystemParamValidationError as core::convert::Into<bevy_ecs::error::bevy_error::BevyError>>::into
+             at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/convert/mod.rs:778:9
+   2: <bevy_ecs::schedule::executor::multi_threaded::ExecutorState>::should_run
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:647:31
+   3: <bevy_ecs::schedule::executor::multi_threaded::ExecutorState>::spawn_system_tasks
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:497:27
+   4: <bevy_ecs::schedule::executor::multi_threaded::ExecutorState>::tick
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:436:18
+   5: <bevy_ecs::schedule::executor::multi_threaded::Context>::tick_executor
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:378:19
+   6: <bevy_ecs::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs::schedule::executor::SystemExecutor>::run::{closure#1}
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:291:25
+   7: <bevy_tasks::task_pool::TaskPool>::scope_with_executor_inner::<<bevy_ecs::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs::schedule::executor::SystemExecutor>::run::{closure#1}, ()>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_tasks-0.18.1/src/task_pool.rs:408:9
+   8: <bevy_tasks::task_pool::TaskPool>::scope_with_executor::<<bevy_ecs::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs::schedule::executor::SystemExecutor>::run::{closure#1}, ()>::{closure#0}
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_tasks-0.18.1/src/task_pool.rs:350:22
+   9: <std::thread::local::LocalKey<alloc::sync::Arc<bevy_tasks::thread_executor::ThreadExecutor>>>::try_with::<<bevy_tasks::task_pool::TaskPool>::scope_with_executor<<bevy_ecs::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs::schedule::executor::SystemExecutor>::run::{closure#1}, ()>::{closure#0}, alloc::vec::Vec<()>>
+             at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs:513:12
+  10: <std::thread::local::LocalKey<alloc::sync::Arc<bevy_tasks::thread_executor::ThreadExecutor>>>::with::<<bevy_tasks::task_pool::TaskPool>::scope_with_executor<<bevy_ecs::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs::schedule::executor::SystemExecutor>::run::{closure#1}, ()>::{closure#0}, alloc::vec::Vec<()>>
+             at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs:477:20
+  11: <bevy_tasks::task_pool::TaskPool>::scope_with_executor::<<bevy_ecs::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs::schedule::executor::SystemExecutor>::run::{closure#1}, ()>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_tasks-0.18.1/src/task_pool.rs:339:31
+  12: <bevy_ecs::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs::schedule::executor::SystemExecutor>::run
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:279:57
+  13: <bevy_ecs::schedule::schedule::Schedule>::run
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/schedule.rs:547:14
+  14: <bevy_ecs::world::World>::try_run_schedule::<bevy_ecs::intern::Interned<dyn bevy_ecs::schedule::set::ScheduleLabel>>::{closure#0}
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3730:61
+  15: <bevy_ecs::world::World>::try_schedule_scope::<(), bevy_ecs::intern::Interned<dyn bevy_ecs::schedule::set::ScheduleLabel>, <bevy_ecs::world::World>::try_run_schedule<bevy_ecs::intern::Interned<dyn bevy_ecs::schedule::set::ScheduleLabel>>::{closure#0}>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3663:21
+  16: <bevy_ecs::world::World>::try_run_schedule::<bevy_ecs::intern::Interned<dyn bevy_ecs::schedule::set::ScheduleLabel>>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3730:14
+  17: <bevy_app::main_schedule::Main>::run_main::{closure#1}
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/main_schedule.rs:293:31
+  18: <bevy_ecs::world::World>::try_resource_scope::<bevy_app::main_schedule::MainScheduleOrder, (), <bevy_app::main_schedule::Main>::run_main::{closure#1}>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:2824:13
+  19: <bevy_ecs::world::World>::resource_scope::<bevy_app::main_schedule::MainScheduleOrder, (), <bevy_app::main_schedule::Main>::run_main::{closure#1}>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:2703:14
+  20: <bevy_app::main_schedule::Main>::run_main
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/main_schedule.rs:291:15
+  21: <<bevy_app::main_schedule::Main>::run_main as core::ops::function::FnMut<(&mut bevy_ecs::world::World, bevy_ecs::system::system_param::Local<bool>)>>::call_mut
+             at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:166:5
+  22: <&mut <bevy_app::main_schedule::Main>::run_main as core::ops::function::FnMut<(&mut bevy_ecs::world::World, bevy_ecs::system::system_param::Local<bool>)>>::call_mut
+             at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:298:21
+  23: <_ as bevy_ecs::system::exclusive_function_system::ExclusiveSystemParamFunction<fn(_) -> _>>::run::call_inner::<(), bevy_ecs::system::system_param::Local<bool>, &mut <bevy_app::main_schedule::Main>::run_main>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:270:21
+  24: <<bevy_app::main_schedule::Main>::run_main as bevy_ecs::system::exclusive_function_system::ExclusiveSystemParamFunction<fn(bevy_ecs::system::system_param::Local<bool>)>>::run
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:273:17
+  25: <bevy_ecs::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs::system::system_param::Local<bool>), (), <bevy_app::main_schedule::Main>::run_main> as bevy_ecs::system::system::System>::run_unsafe::{closure#0}
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:135:33
+  26: <bevy_ecs::world::World>::last_change_tick_scope::<core::result::Result<(), bevy_ecs::system::system::RunSystemError>, <bevy_ecs::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs::system::system_param::Local<bool>), (), <bevy_app::main_schedule::Main>::run_main> as bevy_ecs::system::system::System>::run_unsafe::{closure#0}>
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3142:9
+  27: <bevy_ecs::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs::system::system_param::Local<bool>), (), <bevy_app::main_schedule::Main>::run_main> as bevy_ecs::system::system::System>::run_unsafe
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:113:15
+  28: <bevy_ecs::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs::system::system_param::Local<bool>), (), <bevy_app::main_schedule::Main>::run_main> as bevy_ecs::system::system::System>::run_without_applying_deferred
+             at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/system.rs:138:23
+note: Some "noisy" backtrace lines have been filtered out. Run with `BEVY_BACKTRACE=full` for a verbose backtrace.
+
+stack backtrace:
+   0:     0x556e6cd0e0ca - std[e84040df3bd3b365]::backtrace_rs::backtrace::libunwind::trace
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/../../backtrace/src/backtrace/libunwind.rs:117:9
+   1:     0x556e6cd0e0ca - std[e84040df3bd3b365]::backtrace_rs::backtrace::trace_unsynchronized::<std[e84040df3bd3b365]::sys::backtrace::_print_fmt::{closure#1}>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/../../backtrace/src/backtrace/mod.rs:66:14
+   2:     0x556e6cd0e0ca - std[e84040df3bd3b365]::sys::backtrace::_print_fmt
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/sys/backtrace.rs:74:9
+   3:     0x556e6cd0e0ca - <<std[e84040df3bd3b365]::sys::backtrace::BacktraceLock>::print::DisplayBacktrace as core[6c6f0f72ed298c38]::fmt::Display>::fmt
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/sys/backtrace.rs:44:26
+   4:     0x556e6cd28dda - <core[6c6f0f72ed298c38]::fmt::rt::Argument>::fmt
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/core/src/fmt/rt.rs:152:76
+   5:     0x556e6cd28dda - core[6c6f0f72ed298c38]::fmt::write
+   6:     0x556e6cd14c12 - std[e84040df3bd3b365]::io::default_write_fmt::<std[e84040df3bd3b365]::sys::stdio::unix::Stderr>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/io/mod.rs:639:11
+   7:     0x556e6cd14c12 - <std[e84040df3bd3b365]::sys::stdio::unix::Stderr as std[e84040df3bd3b365]::io::Write>::write_fmt
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/io/mod.rs:1994:13
+   8:     0x556e6ccea2af - <std[e84040df3bd3b365]::sys::backtrace::BacktraceLock>::print
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/sys/backtrace.rs:47:9
+   9:     0x556e6ccea2af - std[e84040df3bd3b365]::panicking::default_hook::{closure#0}
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:292:27
+  10:     0x556e6cd045f1 - std[e84040df3bd3b365]::panicking::default_hook
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:319:9
+  11:     0x556e6cd0485b - std[e84040df3bd3b365]::panicking::panic_with_hook
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:825:13
+  12:     0x556e6ccea368 - std[e84040df3bd3b365]::panicking::panic_handler::{closure#0}
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:698:13
+  13:     0x556e6cce14a9 - std[e84040df3bd3b365]::sys::backtrace::__rust_end_short_backtrace::<std[e84040df3bd3b365]::panicking::panic_handler::{closure#0}, !>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/sys/backtrace.rs:182:18
+  14:     0x556e6cceb34d - __rustc[d6e935dc4dcc4704]::rust_begin_unwind
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:689:5
+  15:     0x556e6cd2976c - core[6c6f0f72ed298c38]::panicking::panic_fmt
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/core/src/panicking.rs:80:14
+  16:     0x556e6c8094c1 - bevy_ecs[7eb4a8fb20d61abf]::error::handler::panic
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/error/handler.rs:94:9
+  17:     0x556e6c6c56c3 - bevy_ecs[7eb4a8fb20d61abf]::error::handler::panic::{shim:reify#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/error/handler.rs:125:1
+  18:     0x556e6c764c0c - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::ExecutorState>::should_run
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:646:25
+  19:     0x556e6c765461 - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::ExecutorState>::spawn_system_tasks
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:497:27
+  20:     0x556e6c765e47 - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::ExecutorState>::tick
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:436:18
+  21:     0x556e6c76400b - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::Context>::tick_executor
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:378:19
+  22:     0x556e6c763c6f - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#1}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:291:25
+  23:     0x556e6c7c5967 - <bevy_tasks[8ee0745e5b38fdd9]::task_pool::TaskPool>::scope_with_executor_inner::<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#1}, ()>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_tasks-0.18.1/src/task_pool.rs:408:9
+  24:     0x556e6c7c66fe - <bevy_tasks[8ee0745e5b38fdd9]::task_pool::TaskPool>::scope_with_executor::<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#1}, ()>::{closure#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_tasks-0.18.1/src/task_pool.rs:350:22
+  25:     0x556e6c8081cb - <std[e84040df3bd3b365]::thread::local::LocalKey<alloc[d9717d1773e7bcdb]::sync::Arc<bevy_tasks[8ee0745e5b38fdd9]::thread_executor::ThreadExecutor>>>::try_with::<<bevy_tasks[8ee0745e5b38fdd9]::task_pool::TaskPool>::scope_with_executor<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#1}, ()>::{closure#0}, alloc[d9717d1773e7bcdb]::vec::Vec<()>>
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs:513:12
+  26:     0x556e6c80805d - <std[e84040df3bd3b365]::thread::local::LocalKey<alloc[d9717d1773e7bcdb]::sync::Arc<bevy_tasks[8ee0745e5b38fdd9]::thread_executor::ThreadExecutor>>>::with::<<bevy_tasks[8ee0745e5b38fdd9]::task_pool::TaskPool>::scope_with_executor<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#1}, ()>::{closure#0}, alloc[d9717d1773e7bcdb]::vec::Vec<()>>
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs:477:20
+  27:     0x556e6c7c574c - <bevy_tasks[8ee0745e5b38fdd9]::task_pool::TaskPool>::scope_with_executor::<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#1}, ()>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_tasks-0.18.1/src/task_pool.rs:339:31
+  28:     0x556e6c766704 - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::multi_threaded::MultiThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/multi_threaded.rs:279:57
+  29:     0x556e6c7182e2 - <bevy_ecs[7eb4a8fb20d61abf]::schedule::schedule::Schedule>::run
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/schedule.rs:547:14
+  30:     0x556e6c5ccc31 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::try_run_schedule::<bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>>::{closure#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3730:61
+  31:     0x556e6c5cc4e9 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::try_schedule_scope::<(), bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>, <bevy_ecs[7eb4a8fb20d61abf]::world::World>::try_run_schedule<bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>>::{closure#0}>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3663:21
+  32:     0x556e6c5cbebb - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::try_run_schedule::<bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3730:14
+  33:     0x556e6c5c4adf - <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main::{closure#1}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/main_schedule.rs:293:31
+  34:     0x556e6c5cb291 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::try_resource_scope::<bevy_app[f7d851391d386915]::main_schedule::MainScheduleOrder, (), <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main::{closure#1}>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:2824:13
+  35:     0x556e6c5ca863 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::resource_scope::<bevy_app[f7d851391d386915]::main_schedule::MainScheduleOrder, (), <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main::{closure#1}>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:2703:14
+  36:     0x556e6c5c4db2 - <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/main_schedule.rs:291:15
+  37:     0x556e6c5e68e1 - <<bevy_app[f7d851391d386915]::main_schedule::Main>::run_main as core[6c6f0f72ed298c38]::ops::function::FnMut<(&mut bevy_ecs[7eb4a8fb20d61abf]::world::World, bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>)>>::call_mut
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:166:5
+  38:     0x556e6c5c6d64 - <&mut <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main as core[6c6f0f72ed298c38]::ops::function::FnMut<(&mut bevy_ecs[7eb4a8fb20d61abf]::world::World, bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>)>>::call_mut
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:298:21
+  39:     0x556e6c5def4e - <_ as bevy_ecs[7eb4a8fb20d61abf]::system::exclusive_function_system::ExclusiveSystemParamFunction<fn(_) -> _>>::run::call_inner::<(), bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>, &mut <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:270:21
+  40:     0x556e6c5c742e - <<bevy_app[f7d851391d386915]::main_schedule::Main>::run_main as bevy_ecs[7eb4a8fb20d61abf]::system::exclusive_function_system::ExclusiveSystemParamFunction<fn(bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>)>>::run
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:273:17
+  41:     0x556e6c5df2eb - <bevy_ecs[7eb4a8fb20d61abf]::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>), (), <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main> as bevy_ecs[7eb4a8fb20d61abf]::system::system::System>::run_unsafe::{closure#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:135:33
+  42:     0x556e6c5cbce3 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::last_change_tick_scope::<core[6c6f0f72ed298c38]::result::Result<(), bevy_ecs[7eb4a8fb20d61abf]::system::system::RunSystemError>, <bevy_ecs[7eb4a8fb20d61abf]::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>), (), <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main> as bevy_ecs[7eb4a8fb20d61abf]::system::system::System>::run_unsafe::{closure#0}>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3142:9
+  43:     0x556e6c5dfb56 - <bevy_ecs[7eb4a8fb20d61abf]::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>), (), <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main> as bevy_ecs[7eb4a8fb20d61abf]::system::system::System>::run_unsafe
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/exclusive_function_system.rs:113:15
+  44:     0x556e6c5e0838 - <bevy_ecs[7eb4a8fb20d61abf]::system::exclusive_function_system::ExclusiveFunctionSystem<fn(bevy_ecs[7eb4a8fb20d61abf]::system::system_param::Local<bool>), (), <bevy_app[f7d851391d386915]::main_schedule::Main>::run_main> as bevy_ecs[7eb4a8fb20d61abf]::system::system::System>::run_without_applying_deferred
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/system/system.rs:138:23
+  45:     0x556e6c828a4c - bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::__rust_begin_short_backtrace::run_without_applying_deferred
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/mod.rs:301:29
+  46:     0x556e6c80a9e1 - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::single_threaded::SingleThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/single_threaded.rs:142:21
+  47:     0x556e6c6caa39 - <<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::single_threaded::SingleThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#0} as core[6c6f0f72ed298c38]::ops::function::FnOnce<()>>::call_once
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+  48:     0x556e6c81b0d9 - <core[6c6f0f72ed298c38]::panic::unwind_safe::AssertUnwindSafe<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::single_threaded::SingleThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#0}> as core[6c6f0f72ed298c38]::ops::function::FnOnce<()>>::call_once
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panic/unwind_safe.rs:274:9
+  49:     0x556e6c7f4063 - std[e84040df3bd3b365]::panicking::catch_unwind::do_call::<core[6c6f0f72ed298c38]::panic::unwind_safe::AssertUnwindSafe<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::single_threaded::SingleThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#0}>, ()>
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:581:40
+  50:     0x556e6c7a663b - __rust_try
+  51:     0x556e6c7a616f - std[e84040df3bd3b365]::panicking::catch_unwind::<(), core[6c6f0f72ed298c38]::panic::unwind_safe::AssertUnwindSafe<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::single_threaded::SingleThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#0}>>
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:544:19
+  52:     0x556e6c7a616f - std[e84040df3bd3b365]::panic::catch_unwind::<core[6c6f0f72ed298c38]::panic::unwind_safe::AssertUnwindSafe<<bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::single_threaded::SingleThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run::{closure#0}>, ()>
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panic.rs:359:14
+  53:     0x556e6c80b20e - <bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::single_threaded::SingleThreadedExecutor as bevy_ecs[7eb4a8fb20d61abf]::schedule::executor::SystemExecutor>::run
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/executor/single_threaded.rs:157:39
+  54:     0x556e6c7182e2 - <bevy_ecs[7eb4a8fb20d61abf]::schedule::schedule::Schedule>::run
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/schedule/schedule.rs:547:14
+  55:     0x556e6c5ccb91 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::run_schedule::<bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>>::{closure#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3745:57
+  56:     0x556e6c5cc019 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::try_schedule_scope::<(), bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>, <bevy_ecs[7eb4a8fb20d61abf]::world::World>::run_schedule<bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>>::{closure#0}>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3663:21
+  57:     0x556e6c5cbe79 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::schedule_scope::<(), bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>, <bevy_ecs[7eb4a8fb20d61abf]::world::World>::run_schedule<bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>>::{closure#0}>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3715:14
+  58:     0x556e6c5cbe58 - <bevy_ecs[7eb4a8fb20d61abf]::world::World>::run_schedule::<bevy_ecs[7eb4a8fb20d61abf]::intern::Interned<dyn bevy_ecs[7eb4a8fb20d61abf]::schedule::set::ScheduleLabel>>
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_ecs-0.18.1/src/world/mod.rs:3745:14
+  59:     0x556e6c5e1753 - <bevy_app[f7d851391d386915]::sub_app::SubApp>::run_default_schedule
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/sub_app.rs:141:24
+  60:     0x556e6c5e1cca - <bevy_app[f7d851391d386915]::sub_app::SubApps>::update
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/sub_app.rs:517:23
+  61:     0x556e6c5d6cf2 - <bevy_app[f7d851391d386915]::app::App>::update
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/app.rs:164:23
+  62:     0x556e6c5f3153 - <bevy_app[f7d851391d386915]::schedule_runner::ScheduleRunnerPlugin as bevy_app[f7d851391d386915]::plugin::Plugin>::build::{closure#0}::{closure#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/schedule_runner.rs:103:29
+  63:     0x556e6c5f33da - <bevy_app[f7d851391d386915]::schedule_runner::ScheduleRunnerPlugin as bevy_app[f7d851391d386915]::plugin::Plugin>::build::{closure#0}
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/schedule_runner.rs:161:39
+  64:     0x556e6c5e6028 - <<bevy_app[f7d851391d386915]::schedule_runner::ScheduleRunnerPlugin as bevy_app[f7d851391d386915]::plugin::Plugin>::build::{closure#0} as core[6c6f0f72ed298c38]::ops::function::FnOnce<(bevy_app[f7d851391d386915]::app::App,)>>::call_once::{shim:vtable#0}
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+  65:     0x556e6c5e9a49 - <alloc[d9717d1773e7bcdb]::boxed::Box<dyn core[6c6f0f72ed298c38]::ops::function::FnOnce<(bevy_app[f7d851391d386915]::app::App,), Output = bevy_app[f7d851391d386915]::app::AppExit>> as core[6c6f0f72ed298c38]::ops::function::FnOnce<(bevy_app[f7d851391d386915]::app::App,)>>::call_once
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed.rs:2206:9
+  66:     0x556e6c5d6810 - <bevy_app[f7d851391d386915]::app::App>::run
+                               at /home/admin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_app-0.18.1/src/app.rs:195:9
+  67:     0x556e65b7f746 - flatfekt_runtime[536a31c4f4babb83]::run_bake
+                               at /win/linux/Code/rust/flatfekt/crates/flatfekt-runtime/src/lib.rs:2473:7
+  68:     0x556e6595a034 - flatfekt_cli[dc48ba37d3ae5fea]::main
+                               at /win/linux/Code/rust/flatfekt/apps/flatfekt-cli/src/main.rs:346:7
+  69:     0x556e658cae1b - <fn() -> core[6c6f0f72ed298c38]::result::Result<(), anyhow[cd435f4308088c7d]::Error> as core[6c6f0f72ed298c38]::ops::function::FnOnce<()>>::call_once
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+  70:     0x556e6593f62d - std[e84040df3bd3b365]::sys::backtrace::__rust_begin_short_backtrace::<fn() -> core[6c6f0f72ed298c38]::result::Result<(), anyhow[cd435f4308088c7d]::Error>, core[6c6f0f72ed298c38]::result::Result<(), anyhow[cd435f4308088c7d]::Error>>
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/backtrace.rs:166:18
+  71:     0x556e659415c1 - std[e84040df3bd3b365]::rt::lang_start::<core[6c6f0f72ed298c38]::result::Result<(), anyhow[cd435f4308088c7d]::Error>>::{closure#0}
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:206:18
+  72:     0x556e6cd034b6 - <&dyn core[6c6f0f72ed298c38]::ops::function::Fn<(), Output = i32> + core[6c6f0f72ed298c38]::panic::unwind_safe::RefUnwindSafe + core[6c6f0f72ed298c38]::marker::Sync as core[6c6f0f72ed298c38]::ops::function::FnOnce<()>>::call_once
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/core/src/ops/function.rs:287:21
+  73:     0x556e6cd034b6 - std[e84040df3bd3b365]::panicking::catch_unwind::do_call::<&dyn core[6c6f0f72ed298c38]::ops::function::Fn<(), Output = i32> + core[6c6f0f72ed298c38]::panic::unwind_safe::RefUnwindSafe + core[6c6f0f72ed298c38]::marker::Sync, i32>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:581:40
+  74:     0x556e6cd034b6 - std[e84040df3bd3b365]::panicking::catch_unwind::<i32, &dyn core[6c6f0f72ed298c38]::ops::function::Fn<(), Output = i32> + core[6c6f0f72ed298c38]::panic::unwind_safe::RefUnwindSafe + core[6c6f0f72ed298c38]::marker::Sync>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:544:19
+  75:     0x556e6cd034b6 - std[e84040df3bd3b365]::panic::catch_unwind::<&dyn core[6c6f0f72ed298c38]::ops::function::Fn<(), Output = i32> + core[6c6f0f72ed298c38]::panic::unwind_safe::RefUnwindSafe + core[6c6f0f72ed298c38]::marker::Sync, i32>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panic.rs:359:14
+  76:     0x556e6cd034b6 - std[e84040df3bd3b365]::rt::lang_start_internal::{closure#0}
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/rt.rs:175:24
+  77:     0x556e6cd034b6 - std[e84040df3bd3b365]::panicking::catch_unwind::do_call::<std[e84040df3bd3b365]::rt::lang_start_internal::{closure#0}, isize>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:581:40
+  78:     0x556e6cd034b6 - std[e84040df3bd3b365]::panicking::catch_unwind::<isize, std[e84040df3bd3b365]::rt::lang_start_internal::{closure#0}>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panicking.rs:544:19
+  79:     0x556e6cd034b6 - std[e84040df3bd3b365]::panic::catch_unwind::<std[e84040df3bd3b365]::rt::lang_start_internal::{closure#0}, isize>
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/panic.rs:359:14
+  80:     0x556e6cd034b6 - std[e84040df3bd3b365]::rt::lang_start_internal
+                               at /rustc/873b4beb0cc726493b94c8ef21f68795c04fbbc1/library/std/src/rt.rs:171:5
+  81:     0x556e659415a7 - std[e84040df3bd3b365]::rt::lang_start::<core[6c6f0f72ed298c38]::result::Result<(), anyhow[cd435f4308088c7d]::Error>>
+                               at /home/admin/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:205:5
+  82:     0x556e6596145e - main
+  83:     0x7f4ba92276c1 - <unknown>
+  84:     0x7f4ba92277f9 - __libc_start_main
+  85:     0x556e6581ea65 - _start
+  86:                0x0 - <unknown>
+Encountered a panic in system `<Enable the debug feature to see the name>`!

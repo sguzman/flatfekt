@@ -1425,7 +1425,8 @@ fn run_bake_app(
 
   app
     .add_message::<crate::ApplyPatch>()
-    .add_message::<crate::simulation::SimTick>();
+    .add_message::<crate::simulation::SimTick>()
+    .add_message::<bevy::app::AppExit>();
 
   app
     .insert_resource(ConfigRes(cfg))
