@@ -445,8 +445,12 @@ pub mod bevy_load {
     let ext = abs
       .extension()
       .and_then(|e| e.to_str());
-    if !matches!(ext, Some("vert") | Some("frag") | Some("glsl"))
-    {
+    if !matches!(
+      ext,
+      Some("vert")
+        | Some("frag")
+        | Some("glsl")
+    ) {
       return Err(
         AssetResolveError::WgslExtension(
           abs.display().to_string()

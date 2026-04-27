@@ -123,7 +123,7 @@ pub struct SceneFile {
 )]
 #[serde(deny_unknown_fields)]
 pub struct Scene {
-  pub schema_version: String,
+  pub schema_version:   String,
   pub resolution:
     Option<ResolutionSpec>,
   pub sequence:
@@ -152,7 +152,7 @@ pub struct Scene {
     Option<Vec<GeneratorSpec>>,
   pub baked: Option<std::path::PathBuf>,
   #[serde(default)]
-  pub entities:       Vec<EntitySpec>
+  pub entities:         Vec<EntitySpec>
 }
 
 #[derive(
@@ -1001,22 +1001,32 @@ impl Scene {
             )
           );
         }
-        if e.wgsl.is_none() && e.glsl.is_none() {
+        if e.wgsl.is_none()
+          && e.glsl.is_none()
+        {
           return Err(SceneError::Validate(format!(
             "scene.effects[{eidx}] must have either wgsl or glsl specified"
           )));
         }
-        if e.wgsl.is_some() && e.glsl.is_some() {
+        if e.wgsl.is_some()
+          && e.glsl.is_some()
+        {
           return Err(SceneError::Validate(format!(
             "scene.effects[{eidx}] cannot have both wgsl and glsl specified"
           )));
         }
 
-        let shader_ref = e.wgsl.as_ref().or(e.glsl.as_ref());
-        if let Some(shader) = shader_ref {
+        let shader_ref = e
+          .wgsl
+          .as_ref()
+          .or(e.glsl.as_ref());
+        if let Some(shader) = shader_ref
+        {
           match shader {
             | AssetRef::String(s)
-              if s.trim().is_empty() =>
+              if s
+                .trim()
+                .is_empty() =>
             {
               return Err(SceneError::Validate(format!(
                 "scene.effects[{eidx}] shader path must not be empty"
@@ -1034,7 +1044,10 @@ impl Scene {
             }
             | AssetRef::Id {
               id
-            } if id.trim().is_empty() => {
+            } if id
+              .trim()
+              .is_empty() =>
+            {
               return Err(SceneError::Validate(format!(
                 "scene.effects[{eidx}] shader id must not be empty"
               )));

@@ -265,6 +265,94 @@ fn sha256_hex(bytes: &[u8]) -> String {
   out
 }
 
+fn package_builtin_shaders(
+  cfg: &flatfekt_config::RootConfig,
+  output_dir: &Path,
+  assets_dir: &Path,
+  assets: &mut Vec<BakeAsset>
+) {
+  let Ok(src_assets_root) =
+    flatfekt_assets::resolve::assets_root(
+      cfg
+    )
+  else {
+    tracing::debug!(
+      "assets root not configured; skipping shader directory packaging"
+    );
+    return;
+  };
+
+  let src_shaders_dir = src_assets_root
+    .join("flatfekt")
+    .join("shaders");
+  if !src_shaders_dir.exists()
+    || !src_shaders_dir.is_dir()
+  {
+    return;
+  }
+
+  let dst_shaders_in_assets =
+    assets_dir
+      .join("flatfekt")
+      .join("shaders");
+  let _ = std::fs::create_dir_all(
+    &dst_shaders_in_assets
+  );
+
+  let dst_shaders_in_root = output_dir
+    .join("flatfekt")
+    .join("shaders");
+  let _ = std::fs::create_dir_all(
+    &dst_shaders_in_root
+  );
+
+  let Ok(entries) =
+    std::fs::read_dir(&src_shaders_dir)
+  else {
+    return;
+  };
+  for entry in entries.flatten() {
+    let path = entry.path();
+    if !path.is_file() {
+      continue;
+    }
+    let Some(name) = path.file_name()
+    else {
+      continue;
+    };
+    let Ok(bytes) =
+      std::fs::read(&path)
+    else {
+      continue;
+    };
+
+    let _ = std::fs::write(
+      dst_shaders_in_assets.join(name),
+      &bytes
+    );
+    let _ = std::fs::write(
+      dst_shaders_in_root.join(name),
+      &bytes
+    );
+
+    let sha256 = sha256_hex(&bytes);
+    assets.push(BakeAsset {
+      role: "shader".to_owned(),
+      original_ref: format!(
+        "flatfekt/shaders/{}",
+        name.to_string_lossy()
+      ),
+      packaged_path: format!(
+        "{}/flatfekt/shaders/{}",
+        BAKE_ASSETS_DIR,
+        name.to_string_lossy()
+      ),
+      sha256,
+      bytes: bytes.len() as u64
+    });
+  }
+}
+
 #[instrument(level = "info", skip_all)]
 pub fn bake_scene_to_dir(
   mut cfg: flatfekt_config::RootConfig,
@@ -478,43 +566,22 @@ pub fn bake_scene_to_dir(
     Vec::new()
   };
 
-  // Recursively copy the entire flatfekt/shaders directory if it exists.
-  // We copy it to BOTH the bake root and the assets subdir to ensure
-  // that hardcoded engine paths ("flatfekt/shaders/...") and rewritten
-  // paths ("assets/flatfekt/shaders/...") both resolve correctly.
+  // Recursively copy the entire
+  // flatfekt/shaders directory if it
+  // exists. We copy it to BOTH the
+  // bake root and the assets subdir to
+  // ensure that hardcoded engine
+  // paths ("flatfekt/shaders/...") and
+  // rewritten paths ("assets/
+  // flatfekt/shaders/...") both resolve
+  // correctly.
   if req.copy_assets {
-    let src_assets_root = flatfekt_assets::resolve::assets_root(&cfg)?;
-    let src_shaders_dir = src_assets_root.join("flatfekt").join("shaders");
-    if src_shaders_dir.exists() && src_shaders_dir.is_dir() {
-      let dst_shaders_in_assets = assets_dir.join("flatfekt").join("shaders");
-      let _ = std::fs::create_dir_all(&dst_shaders_in_assets);
-      
-      let dst_shaders_in_root = output_dir.join("flatfekt").join("shaders");
-      let _ = std::fs::create_dir_all(&dst_shaders_in_root);
-      
-      if let Ok(entries) = std::fs::read_dir(&src_shaders_dir) {
-        for entry in entries.flatten() {
-          let path = entry.path();
-          if path.is_file() {
-            if let Some(name) = path.file_name() {
-              if let Ok(bytes) = std::fs::read(&path) {
-                let _ = std::fs::write(dst_shaders_in_assets.join(name), &bytes);
-                let _ = std::fs::write(dst_shaders_in_root.join(name), &bytes);
-                
-                let sha256 = sha256_hex(&bytes);
-                assets.push(BakeAsset {
-                  role: "shader".to_owned(),
-                  original_ref: format!("flatfekt/shaders/{}", name.to_string_lossy()),
-                  packaged_path: format!("{}/flatfekt/shaders/{}", BAKE_ASSETS_DIR, name.to_string_lossy()),
-                  sha256,
-                  bytes: bytes.len() as u64,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
+    package_builtin_shaders(
+      &cfg,
+      &output_dir,
+      &assets_dir,
+      &mut assets
+    );
   }
 
   // Write scene_playback.toml
@@ -525,7 +592,10 @@ pub fn bake_scene_to_dir(
     "failed to serialize \
      scene_playback.toml"
   )?;
-  tracing::info!(toml = %toml, "generated scene_playback.toml");
+  tracing::debug!(
+    toml = %toml,
+    "generated scene_playback.toml"
+  );
   std::fs::write(
     &scene_playback_path,
     toml
@@ -558,7 +628,9 @@ pub fn bake_scene_to_dir(
     end_behavior: "stop".to_owned()
   };
 
-  let assets_root = flatfekt_assets::resolve::assets_root(&cfg)?;
+  let assets_root =
+    flatfekt_assets::resolve::assets_root(&cfg)
+      .unwrap_or_else(|_| PathBuf::from("."));
   run_bake_app(
     cfg,
     scene_path.clone(),
@@ -568,7 +640,8 @@ pub fn bake_scene_to_dir(
         .clone(),
       scene_playback_path:
         scene_playback_path.clone(),
-      source_scene: scene_playback.clone(),
+      source_scene: scene_playback
+        .clone(),
       playback,
       meta,
       assets,
@@ -938,6 +1011,15 @@ fn bake_aggregate_scene_to_dir(
     events: Vec::new()
   };
 
+  if req.copy_assets {
+    package_builtin_shaders(
+      &cfg,
+      &output_dir,
+      &assets_dir,
+      &mut merged.assets
+    );
+  }
+
   let clips_dir =
     output_dir.join("clips");
   std::fs::create_dir_all(&clips_dir)
@@ -1217,10 +1299,12 @@ fn rewrite_asset_ids_to_paths(
     &mut scene.effects
   {
     for eff in effects {
-      if let Some(wgsl) = &mut eff.wgsl {
+      if let Some(wgsl) = &mut eff.wgsl
+      {
         rewrite(wgsl)?;
       }
-      if let Some(glsl) = &mut eff.glsl {
+      if let Some(glsl) = &mut eff.glsl
+      {
         rewrite(glsl)?;
       }
     }
@@ -1295,37 +1379,55 @@ fn path_to_slash_string(
 
 fn for_each_asset_ref_mut(
   scene: &mut flatfekt_schema::Scene,
-  mut f: impl FnMut(&'static str, &mut flatfekt_schema::AssetRef) -> anyhow::Result<()>
+  mut f: impl FnMut(
+    &'static str,
+    &mut flatfekt_schema::AssetRef
+  ) -> anyhow::Result<()>
 ) -> anyhow::Result<()> {
-  if let Some(effects) = &mut scene.effects {
+  if let Some(effects) =
+    &mut scene.effects
+  {
     for eff in effects {
-      if let Some(wgsl) = &mut eff.wgsl {
+      if let Some(wgsl) = &mut eff.wgsl
+      {
         f("wgsl", wgsl)?;
       }
-      if let Some(glsl) = &mut eff.glsl {
+      if let Some(glsl) = &mut eff.glsl
+      {
         f("glsl", glsl)?;
       }
     }
   }
 
   for ent in &mut scene.entities {
-    if let Some(sprite) = &mut ent.sprite {
+    if let Some(sprite) =
+      &mut ent.sprite
+    {
       f("image", &mut sprite.image)?;
     }
     if let Some(text) = &mut ent.text {
-      if let Some(font) = &mut text.font {
+      if let Some(font) = &mut text.font
+      {
         f("font", font)?;
       }
-      if let Some(spans) = &mut text.spans {
+      if let Some(spans) =
+        &mut text.spans
+      {
         for s in spans {
-          if let Some(font) = &mut s.font {
+          if let Some(font) =
+            &mut s.font
+          {
             f("font", font)?;
           }
         }
       }
-      if let Some(effects) = &mut text.effects {
+      if let Some(effects) =
+        &mut text.effects
+      {
         for eff in effects {
-          if let Some(shader) = &mut eff.shader {
+          if let Some(shader) =
+            &mut eff.shader
+          {
             f("wgsl", shader)?;
           }
         }
@@ -1342,48 +1444,106 @@ fn package_assets_and_rewrite_scene(
   dst_assets_root: &Path,
   scene_file: &mut flatfekt_schema::SceneFile
 ) -> anyhow::Result<Vec<BakeAsset>> {
-  let mut assets: Vec<BakeAsset> = Vec::new();
+  let mut assets: Vec<BakeAsset> =
+    Vec::new();
   let mut copied: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-  rewrite_asset_ids_to_paths(cfg, scene_file)?;
+  rewrite_asset_ids_to_paths(
+    cfg, scene_file
+  )?;
 
-  for_each_asset_ref_mut(&mut scene_file.scene, |role, asset| {
-    let original = asset_ref_original(asset);
-    tracing::info!(role, original, "packaging asset");
-    let abs = flatfekt_assets::resolve::resolve_asset_path_cfg(cfg, src_assets_root, &asset.clone()).with_context(|| {
+  for_each_asset_ref_mut(
+    &mut scene_file.scene,
+    |role, asset| {
+      let original =
+        asset_ref_original(asset);
+      tracing::info!(
+        role,
+        original,
+        "packaging asset"
+      );
+      let abs = flatfekt_assets::resolve::resolve_asset_path_cfg(cfg, src_assets_root, &asset.clone()).with_context(|| {
       format!("failed to resolve asset ({role}) {original}")
     })?;
 
-    let rel = abs.strip_prefix(src_assets_root).unwrap_or(abs.as_path());
-    let packaged_rel = path_to_slash_string(rel);
-    let packaged_path = format!("{}/{}", BAKE_ASSETS_DIR, packaged_rel);
-    tracing::info!(packaged_path, "rewriting asset path");
+      let rel = abs
+        .strip_prefix(src_assets_root)
+        .unwrap_or(abs.as_path());
+      let packaged_rel =
+        path_to_slash_string(rel);
+      let packaged_path = format!(
+        "{}/{}",
+        BAKE_ASSETS_DIR, packaged_rel
+      );
+      tracing::info!(
+        packaged_path,
+        "rewriting asset path"
+      );
 
-    if !copied.contains(&packaged_path) {
-      let dst = dst_assets_root.join(rel);
-      if let Some(parent) = dst.parent() {
-        std::fs::create_dir_all(parent).with_context(|| format!("failed to create asset dir {}", parent.display()))?;
+      if !copied
+        .contains(&packaged_path)
+      {
+        let dst =
+          dst_assets_root.join(rel);
+        if let Some(parent) =
+          dst.parent()
+        {
+          std::fs::create_dir_all(
+            parent
+          )
+          .with_context(
+            || {
+              format!(
+                "failed to create \
+                 asset dir {}",
+                parent.display()
+              )
+            }
+          )?;
+        }
+
+        let bytes = std::fs::read(&abs)
+          .with_context(|| {
+            format!(
+              "failed to read asset {}",
+              abs.display()
+            )
+          })?;
+        std::fs::write(&dst, &bytes)
+          .with_context(|| {
+            format!(
+              "failed to write \
+               packaged asset {}",
+              dst.display()
+            )
+          })?;
+
+        let sha256 = sha256_hex(&bytes);
+        assets.push(BakeAsset {
+          role: role.to_owned(),
+          original_ref: original
+            .clone(),
+          packaged_path: packaged_path
+            .clone(),
+          sha256,
+          bytes: bytes.len() as u64
+        });
+        copied.insert(
+          packaged_path.clone()
+        );
       }
 
-      let bytes = std::fs::read(&abs).with_context(|| format!("failed to read asset {}", abs.display()))?;
-      std::fs::write(&dst, &bytes).with_context(|| format!("failed to write packaged asset {}", dst.display()))?;
-
-      let sha256 = sha256_hex(&bytes);
-      assets.push(BakeAsset {
-        role: role.to_owned(),
-        original_ref: original.clone(),
-        packaged_path: packaged_path.clone(),
-        sha256,
-        bytes: bytes.len() as u64,
-      });
-      copied.insert(packaged_path.clone());
+      *asset = flatfekt_schema::AssetRef::Path {
+        path: PathBuf::from(packaged_path),
+      };
+      Ok(())
     }
+  )?;
 
-    *asset = flatfekt_schema::AssetRef::String(packaged_path);
-    Ok(())
-  })?;
-
-  tracing::info!(packaged = assets.len(), "packaged scene assets");
+  tracing::info!(
+    packaged = assets.len(),
+    "packaged scene assets"
+  );
   Ok(assets)
 }
 

@@ -431,7 +431,10 @@ pub fn build_app(
 ) -> Result<App, RuntimeError> {
   let mut root = assets_root(&cfg)?;
   if root.is_relative() {
-    if let Ok(abs) = std::env::current_dir().map(|d| d.join(&root)) {
+    if let Ok(abs) =
+      std::env::current_dir()
+        .map(|d| d.join(&root))
+    {
       root = abs;
     }
   }
@@ -586,18 +589,30 @@ pub fn build_app(
   // be fatal depending on build
   // settings). We intentionally disable
   // it and rely on our tracing setup.
-  let mut plugins = DefaultPlugins.build();
-  plugins = plugins.set(bevy::asset::AssetPlugin {
-    file_path: root.to_string_lossy().to_string(),
-    ..default()
-  });
-  let mut window = bevy::window::Window::default();
-  window.resolution = bevy::window::WindowResolution::new(win_w, win_h);
-  plugins = plugins.set(bevy::window::WindowPlugin {
-    primary_window: Some(window),
-    ..default()
-  });
-  plugins = plugins.disable::<bevy::log::LogPlugin>();
+  let mut plugins =
+    DefaultPlugins.build();
+  plugins = plugins.set(
+    bevy::asset::AssetPlugin {
+      file_path: root
+        .to_string_lossy()
+        .to_string(),
+      ..default()
+    }
+  );
+  let mut window =
+    bevy::window::Window::default();
+  window.resolution =
+    bevy::window::WindowResolution::new(
+      win_w, win_h
+    );
+  plugins = plugins.set(
+    bevy::window::WindowPlugin {
+      primary_window: Some(window),
+      ..default()
+    }
+  );
+  plugins = plugins
+    .disable::<bevy::log::LogPlugin>();
   app.add_plugins(plugins);
 
   if app
@@ -852,7 +867,10 @@ fn instantiate_scene(
   if let Some(rtt) = effects_rtt {
     camera.insert(Camera {
       order: 0,
-      clear_color: ClearColorConfig::Custom(Color::srgb(1.0, 0.0, 0.0)),
+      clear_color:
+        ClearColorConfig::Custom(
+          Color::srgb(1.0, 0.0, 0.0)
+        ),
       ..default()
     });
     camera.insert(
@@ -1904,8 +1922,12 @@ pub fn hot_reload_system(
           &scene_res.0.scene.effects
         {
           for e in scene_effects {
-            let shader = e.wgsl.as_ref().or(e.glsl.as_ref());
-            if let Some(shader) = shader {
+            let shader = e
+              .wgsl
+              .as_ref()
+              .or(e.glsl.as_ref());
+            if let Some(shader) = shader
+            {
               if let Ok(abs) =
                 flatfekt_assets::resolve::resolve_asset_path_cfg(
                   &cfg.0,
@@ -2441,12 +2463,14 @@ pub fn run_bake(
   app.add_plugins((
     bevy::transform::TransformPlugin,
     bevy::asset::AssetPlugin {
-      file_path: root.to_string_lossy().to_string(),
+      file_path: root
+        .to_string_lossy()
+        .to_string(),
       ..default()
     },
     bevy::input::InputPlugin,
     bevy::text::TextPlugin,
-    bevy::gizmos::GizmoPlugin,
+    bevy::gizmos::GizmoPlugin
   ));
 
   app.insert_resource(ConfigRes(

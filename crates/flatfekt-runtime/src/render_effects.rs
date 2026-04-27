@@ -1,17 +1,19 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
-use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy::render::render_resource::{
   AsBindGroup,
   Extent3d,
-  ShaderType,
-  TextureDimension,
-  TextureFormat,
   RenderPipelineDescriptor,
-  SpecializedMeshPipelineError
+  ShaderType,
+  SpecializedMeshPipelineError,
+  TextureDimension,
+  TextureFormat
 };
 use bevy_camera::RenderTarget;
-use bevy_mesh::Mesh2d;
+use bevy_mesh::{
+  Mesh2d,
+  MeshVertexBufferLayoutRef
+};
 use bevy_shader::ShaderRef;
 use bevy_sprite_render::{
   Material2d,
@@ -40,12 +42,20 @@ pub struct RenderToTextureRes {
   pub image: Handle<Image>
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(
+  Eq, PartialEq, Hash, Clone,
+)]
 pub struct PostProcessKey {
   pub shader: Handle<Shader>
 }
 
-#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+#[derive(
+  Asset,
+  TypePath,
+  AsBindGroup,
+  Debug,
+  Clone,
+)]
 #[bind_group_data(PostProcessKey)]
 pub struct PostProcessMaterial {
   #[uniform(0)]
@@ -56,8 +66,12 @@ pub struct PostProcessMaterial {
   pub shader: Handle<Shader>
 }
 
-impl From<&PostProcessMaterial> for PostProcessKey {
-  fn from(m: &PostProcessMaterial) -> Self {
+impl From<&PostProcessMaterial>
+  for PostProcessKey
+{
+  fn from(
+    m: &PostProcessMaterial
+  ) -> Self {
     Self {
       shader: m.shader.clone()
     }
@@ -87,11 +101,20 @@ impl Material2d
   fn specialize(
     descriptor: &mut RenderPipelineDescriptor,
     _layout: &MeshVertexBufferLayoutRef,
-    key: Material2dKey<Self>,
-  ) -> Result<(), SpecializedMeshPipelineError> {
+    key: Material2dKey<Self>
+  ) -> Result<
+    (),
+    SpecializedMeshPipelineError
+  > {
     tracing::info!(shader = ?key.bind_group_data.shader, "specializing post process material shader");
-    descriptor.fragment.as_mut().unwrap().shader =
-      key.bind_group_data.shader.clone();
+    descriptor
+      .fragment
+      .as_mut()
+      .unwrap()
+      .shader = key
+      .bind_group_data
+      .shader
+      .clone();
     Ok(())
   }
 }
@@ -241,14 +264,18 @@ fn apply_camera_targets(
         {
           // Kick load + parse
           // validation.
-          if let Some(wgsl) = &effect.wgsl {
+          if let Some(wgsl) =
+            &effect.wgsl
+          {
             let _ = flatfekt_assets::resolve::bevy_load::load_wgsl_shader(
               &asset_server,
               &cfg.0,
               &assets_root.0,
               wgsl,
             );
-          } else if let Some(glsl) = &effect.glsl {
+          } else if let Some(glsl) =
+            &effect.glsl
+          {
             let _ = flatfekt_assets::resolve::bevy_load::load_glsl_shader(
               &asset_server,
               &cfg.0,
@@ -333,13 +360,20 @@ fn apply_camera_targets(
     let mesh2d = Mesh2d(mesh);
 
     let mut intensity = 1.0;
-    let mut shader_handle: Handle<Shader> =
-      asset_server.load("flatfekt/shaders/postprocess.wgsl");
+    let mut shader_handle: Handle<
+      Shader
+    > = asset_server.load(
+      "flatfekt/shaders/postprocess.\
+       wgsl"
+    );
 
     let global_id = scene
       .as_ref()
       .and_then(|s| {
-        s.0.scene.active_effect_id.as_deref()
+        s.0
+          .scene
+          .active_effect_id
+          .as_deref()
       })
       .or_else(|| {
         effects
@@ -353,8 +387,9 @@ fn apply_camera_targets(
       if let Some(list) =
         &scene.0.scene.effects
       {
-        if let Some(effect) =
-          list.iter().find(|e| e.id == id)
+        if let Some(effect) = list
+          .iter()
+          .find(|e| e.id == id)
         {
           if let Some(params) =
             &effect.params
@@ -369,7 +404,9 @@ fn apply_camera_targets(
             }
           }
 
-          if let Some(wgsl) = &effect.wgsl {
+          if let Some(wgsl) =
+            &effect.wgsl
+          {
             shader_handle = flatfekt_assets::resolve::bevy_load::load_wgsl_shader(
               &asset_server,
               &cfg.as_deref().unwrap().0,
@@ -379,7 +416,9 @@ fn apply_camera_targets(
               tracing::error!(error = ?e, path = ?wgsl, "failed to load wgsl shader");
               shader_handle
             });
-          } else if let Some(glsl) = &effect.glsl {
+          } else if let Some(glsl) =
+            &effect.glsl
+          {
             shader_handle = flatfekt_assets::resolve::bevy_load::load_glsl_shader(
               &asset_server,
               &cfg.as_deref().unwrap().0,

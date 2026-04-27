@@ -577,16 +577,30 @@ fn run_export_frames(
       output_dir
     );
 
+  let fps = req
+    .fps
+    .unwrap_or(baked.playback.fps)
+    .max(0.0);
+  let duration_secs = req
+    .duration_secs
+    .unwrap_or(
+      baked.playback.duration_secs
+    )
+    .max(0.0);
   let fps =
-    req.fps.unwrap_or_else(|| {
+    if fps.is_finite() && fps > 0.0 {
+      fps
+    } else {
       cfg.export_frames_default_fps()
-    });
-  let duration_secs =
-    req.duration_secs.unwrap_or_else(
-      || {
-        cfg.export_frames_default_duration_secs()
-      }
-    );
+    };
+  let duration_secs = if duration_secs
+    .is_finite()
+    && duration_secs > 0.0
+  {
+    duration_secs
+  } else {
+    cfg.export_frames_default_duration_secs()
+  };
 
   let width =
     req.width.unwrap_or_else(|| {
@@ -659,6 +673,9 @@ fn run_export_frames(
   app.insert_resource(job);
 
   tracing::info!(
+    fps,
+    duration_secs,
+    frame_count,
     width,
     height,
     "starting export render loop"
@@ -772,15 +789,26 @@ fn resolve_export_input(
     let scene_file =
       load_scene(&scene_path)?;
 
+    let inferred =
+      infer_bake_params_from_scene(
+        &cfg,
+        &scene_path,
+        &scene_file
+      )?;
+
     let bake_req = bake::BakeRequest {
       output_root: cfg.export_bake_output_root(),
       fps: req.fps.unwrap_or_else(|| {
-        cfg.export_bake_default_fps()
+        inferred
+          .fps
+          .unwrap_or_else(|| cfg.export_bake_default_fps())
       }),
       duration_secs: req
         .duration_secs
         .unwrap_or_else(|| {
-          cfg.export_bake_default_duration_secs()
+          inferred.duration_secs.unwrap_or_else(
+            || cfg.export_bake_default_duration_secs()
+          )
         }),
       copy_assets: cfg.export_bake_copy_assets(),
     };
@@ -878,6 +906,60 @@ fn resolve_export_input(
     scene_playback_path,
     cfg
   ))
+}
+
+#[derive(Debug, Clone, Copy)]
+struct InferredBakeParams {
+  fps:           Option<f32>,
+  duration_secs: Option<f32>
+}
+
+fn infer_bake_params_from_scene(
+  cfg: &RootConfig,
+  scene_path: &PathBuf,
+  scene_file: &flatfekt_schema::SceneFile
+) -> anyhow::Result<InferredBakeParams>
+{
+  let pb =
+    scene_file.scene.playback.as_ref();
+
+  let fps = pb.and_then(|p| {
+    p.target_fps.map(|v| v as f32)
+  });
+
+  let duration_secs = if let Some(d) =
+    pb.and_then(|p| p.duration_secs)
+  {
+    Some(d)
+  } else if let Some(seq) = scene_file
+    .scene
+    .sequence
+    .as_ref()
+    .filter(|s| !s.is_empty())
+  {
+    Some(
+      seq
+        .iter()
+        .map(|c| c.duration_secs)
+        .sum()
+    )
+  } else {
+    None
+  };
+
+  tracing::info!(
+    scene = %scene_path.display(),
+    inferred_fps = fps,
+    inferred_duration_secs = duration_secs,
+    cfg_default_fps = cfg.export_bake_default_fps(),
+    cfg_default_duration_secs = cfg.export_bake_default_duration_secs(),
+    "inferred bake params for export"
+  );
+
+  Ok(InferredBakeParams {
+    fps,
+    duration_secs
+  })
 }
 
 fn ensure_ffmpeg_available(
