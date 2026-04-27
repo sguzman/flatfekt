@@ -40,6 +40,7 @@ Own the outputs the engine can produce: save/load, recording/replay, frame expor
 - [x] Add simulation baking (bake command, trajectory export, playback interpolation)
 - [x] Support baking stitched scenes (`scene.sequence[]`) by baking clips and merging into one bake artifact
 - [x] Package builtin engine shaders (`assets/flatfekt/shaders/*`) into bake artifacts for self-contained playback/export
+- [x] Fix stitched bake `scene_playback.toml` to reference merged `bake.json` (not the last clip bake)
 - [x] Fix `bake` to run headless (no window), advance simulation time, and write output for `scenes/physics_test.toml`
 - [x] Promote bake output to first-class artifact directory under `.cache/flatfekt/scene/<scene>/bakes/<scene_xxhash>/run-.../` (includes `bake.json`, `scene_playback.toml`, and packaged `assets/`)
 - [x] Upgrade `bake.json` to v0.2 (meta + playback timing + asset manifest + keyframes: transform + text value + sprite color)

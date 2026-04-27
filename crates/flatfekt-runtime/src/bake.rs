@@ -1069,6 +1069,9 @@ fn bake_aggregate_scene_to_dir(
       })?;
     let clip_bake_path =
       clip_dir.join(BAKE_JSON_FILE);
+    let clip_scene_playback_path =
+      clip_dir
+        .join(BAKE_SCENE_PLAYBACK_TOML);
 
     let playback = BakePlayback {
       fps,
@@ -1084,7 +1087,7 @@ fn bake_aggregate_scene_to_dir(
       clip_scene.clone(),
       BakeSettings {
         bake_json_path:      clip_bake_path.clone(),
-        scene_playback_path: scene_playback_path.clone(),
+        scene_playback_path: clip_scene_playback_path,
         source_scene:        clip_scene,
         playback:            playback,
         meta:                BakeMeta {
