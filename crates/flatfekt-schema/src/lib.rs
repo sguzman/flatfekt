@@ -815,6 +815,34 @@ impl Scene {
       }
     }
 
+    if let Some(active) =
+      self.active_effect_id.as_deref()
+    {
+      if active.trim().is_empty() {
+        return Err(SceneError::Validate(
+          "scene.active_effect_id must not be empty"
+            .to_owned()
+        ));
+      }
+      let Some(list) = &self.effects else {
+        return Err(SceneError::Validate(
+          format!(
+            "scene.active_effect_id references {:?} but scene.effects is not defined",
+            active
+          )
+        ));
+      };
+      if !list.iter().any(|e| e.id == active)
+      {
+        return Err(SceneError::Validate(
+          format!(
+            "scene.active_effect_id references unknown effect id {:?}",
+            active
+          )
+        ));
+      }
+    }
+
     if let Some(d) = &self.defaults {
       if let Some(sz) = d.text_font_size
       {

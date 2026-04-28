@@ -1,0 +1,48 @@
+[scene]
+schema_version = "0.1"
+resolution = { width = 1280, height = 720 }
+active_effect_id = "bw_overlay"
+
+[scene.playback]
+duration_secs = 4.0
+target_fps = 60
+enable_introspection = true
+
+[scene.background.clear_color]
+r = 0.05
+g = 0.06
+b = 0.08
+a = 1.0
+
+[scene.camera]
+x = 0.0
+y = 0.0
+zoom = 1.0
+scaling_mode = "window_size"
+
+[[scene.effects]]
+id = "bw_overlay"
+wgsl = "effects/bw_overlay.wgsl"
+
+[scene.effects.params]
+intensity = 1.0
+
+[[scene.entities]]
+id = "title"
+
+[scene.entities.text]
+value = "BW overlay"
+size = 42.0
+align = "center"
+anchor = "center"
+
+[scene.entities.transform]
+x = 0.0
+y = 200.0
+z = 1.0
+
+[[scene.entities]]
+id = "ball"
+transform = { x = 0.0, y = -50.0 }
+shape = { kind = "circle", radius = 60.0, color = { r = 0.2, g = 0.7, b = 0.9 } }
+

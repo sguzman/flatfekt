@@ -127,6 +127,7 @@ impl Plugin for FlatfektEffectsPlugin {
     app: &mut App
   ) {
     app
+      .init_resource::<ActiveEffectState>()
       .add_plugins(Material2dPlugin::<
         PostProcessMaterial
       >::default())
@@ -140,9 +141,165 @@ impl Plugin for FlatfektEffectsPlugin {
       )
       .add_systems(
         Update,
-        apply_camera_targets
+        (
+          apply_camera_targets,
+          update_postprocess_material
+            .after(apply_camera_targets),
+        )
       );
   }
+}
+
+#[derive(Resource, Default, Debug, Clone)]
+struct ActiveEffectState {
+  last_effect_id: Option<String>,
+  last_intensity: Option<f32>
+}
+
+#[instrument(level = "debug", skip_all)]
+fn update_postprocess_material(
+  effects: Option<Res<EffectsConfigRes>>,
+  scene: Option<Res<SceneRes>>,
+  cfg: Option<Res<ConfigRes>>,
+  assets_root: Option<Res<AssetsRootRes>>,
+  asset_server: Res<AssetServer>,
+  mut materials: ResMut<
+    Assets<PostProcessMaterial>
+  >,
+  mut state: ResMut<ActiveEffectState>,
+  q_quad: Query<
+    &MeshMaterial2d<PostProcessMaterial>,
+    With<PostProcessQuad>
+  >
+) {
+  let Some(effects) = effects else {
+    return;
+  };
+  if !effects.enabled {
+    return;
+  }
+  let Ok(mat_handle) =
+    q_quad.get_single()
+  else {
+    return;
+  };
+  let Some(mat) = materials.get_mut(
+    &mat_handle.0
+  ) else {
+    return;
+  };
+
+  let global_id = scene
+    .as_ref()
+    .and_then(|s| {
+      s.0
+        .scene
+        .active_effect_id
+        .as_deref()
+    })
+    .filter(|s| !s.trim().is_empty())
+    .or_else(|| {
+      effects
+        .global_effect_id
+        .as_deref()
+    })
+    .map(|s| s.to_owned());
+
+  let mut intensity: Option<f32> = None;
+  let mut shader: Option<Handle<Shader>> =
+    None;
+
+  if let (
+    Some(scene),
+    Some(cfg),
+    Some(assets_root),
+    Some(id),
+  ) = (
+    scene.as_deref(),
+    cfg.as_deref(),
+    assets_root.as_deref(),
+    global_id.as_deref(),
+  ) {
+    if let Some(list) =
+      &scene.0.scene.effects
+    {
+      if let Some(effect) =
+        list.iter().find(|e| e.id == id)
+      {
+        if let Some(params) =
+          &effect.params
+        {
+          intensity = params
+            .get("intensity")
+            .and_then(|v| v.as_float())
+            .map(|v| v as f32);
+        }
+
+        if let Some(wgsl) =
+          &effect.wgsl
+        {
+          shader = flatfekt_assets::resolve::bevy_load::load_wgsl_shader(
+            &asset_server,
+            &cfg.0,
+            &assets_root.0,
+            wgsl,
+          )
+          .map(Some)
+          .unwrap_or_else(|e| {
+            tracing::error!(
+              error = ?e,
+              path = ?wgsl,
+              "failed to load wgsl shader"
+            );
+            None
+          });
+        } else if let Some(glsl) =
+          &effect.glsl
+        {
+          shader = flatfekt_assets::resolve::bevy_load::load_glsl_shader(
+            &asset_server,
+            &cfg.0,
+            &assets_root.0,
+            glsl,
+          )
+          .map(Some)
+          .unwrap_or_else(|e| {
+            tracing::error!(
+              error = ?e,
+              path = ?glsl,
+              "failed to load glsl shader"
+            );
+            None
+          });
+        }
+      }
+    }
+  }
+
+  let changed_id =
+    global_id != state.last_effect_id;
+  let changed_intensity =
+    intensity != state.last_intensity;
+
+  if changed_id || changed_intensity {
+    tracing::info!(
+      effect_id = ?global_id,
+      intensity = intensity.unwrap_or(mat.params.intensity),
+      changed_id,
+      changed_intensity,
+      "updating postprocess material"
+    );
+  }
+
+  if let Some(intensity) = intensity {
+    mat.params.intensity = intensity;
+  }
+  if let Some(shader) = shader {
+    mat.shader = shader;
+  }
+
+  state.last_effect_id = global_id;
+  state.last_intensity = intensity;
 }
 
 #[instrument(level = "info", skip_all)]
@@ -443,13 +600,15 @@ fn apply_camera_targets(
       }
     );
 
-    commands.spawn((
+    commands
+      .spawn((
       mesh2d,
       MeshMaterial2d(mat),
       Transform::from_translation(
         Vec3::new(0.0, 0.0, 0.0)
       )
-    ));
+    ))
+      .insert(PostProcessQuad);
 
     // Second camera renders to window;
     // first camera target is set in
@@ -458,7 +617,10 @@ fn apply_camera_targets(
       Camera2d,
       Camera {
         order: 1,
-        clear_color: ClearColorConfig::Custom(Color::srgb(0.0, 1.0, 0.0)),
+        // Avoid a "green screen" when
+        // postprocess isn't ready or
+        // doesn't cover the viewport.
+        clear_color: ClearColorConfig::Custom(Color::srgb(0.0, 0.0, 0.0)),
         ..default()
       },
       RenderTarget::Window(
@@ -467,6 +629,9 @@ fn apply_camera_targets(
     ));
   }
 }
+
+#[derive(Component)]
+struct PostProcessQuad;
 
 #[derive(Resource)]
 struct PostProcessMarker;

@@ -519,6 +519,17 @@ fn dispatch_event(
         }
       }
     }
+    | "set_active_effect" => {
+      let id = ev
+        .payload
+        .as_ref()
+        .and_then(|p| p.get("id"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_owned());
+      commands.write_message(
+        crate::SetActiveEffect { id }
+      );
+    }
     | other => {
       tracing::debug!(
         action = other,

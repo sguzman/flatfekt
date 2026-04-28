@@ -202,6 +202,16 @@ pub struct EntityMap(
 )]
 pub struct ResetScene;
 
+#[derive(
+  Message,
+  bevy::prelude::Event,
+  Clone,
+  Debug,
+)]
+pub struct SetActiveEffect {
+  pub id: Option<String>
+}
+
 #[derive(Resource, Default)]
 pub struct AssetsCacheRes(
   pub AssetCache
@@ -263,6 +273,7 @@ impl Plugin for FlatfektRuntimePlugin {
       .add_message::<SnapshotScene>()
       .add_message::<RequestScreenshot>()
       .add_message::<SeekTimeline>()
+      .add_message::<SetActiveEffect>()
       .add_message::<simulation::SimTick>()
       .configure_sets(Startup, FlatfektSet::Instantiate)
       .configure_sets(
@@ -320,6 +331,12 @@ impl Plugin for FlatfektRuntimePlugin {
         animation::process_timeline_events
           .in_set(FlatfektSet::SimTick)
           .after(timeline_driver)
+      )
+      .add_systems(
+        Update,
+        set_active_effect_system
+          .in_set(FlatfektSet::SimTick)
+          .after(animation::process_timeline_events)
       )
       .add_systems(
         Update,
@@ -824,6 +841,27 @@ fn enforce_duration(
       clock.t_secs = dur;
       clock.playing = false;
     }
+  }
+}
+
+#[instrument(level = "info", skip_all)]
+fn set_active_effect_system(
+  mut events: MessageReader<SetActiveEffect>,
+  mut scene_res: ResMut<SceneRes>
+) {
+  for ev in events.read() {
+    let id = ev
+      .id
+      .as_deref()
+      .map(str::trim)
+      .filter(|s| !s.is_empty())
+      .map(|s| s.to_owned());
+    scene_res.0.scene.active_effect_id =
+      id.clone();
+    tracing::info!(
+      active_effect_id = ?id,
+      "set active effect"
+    );
   }
 }
 
