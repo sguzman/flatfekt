@@ -1,89 +1,67 @@
 # flatfekt
 
-`flatfekt` is a **2D scene runtime built on Bevy** where scenes are **declared in TOML** and then instantiated, simulated, animated, and rendered by an engine layer.
+`flatfekt` is a Rust and Bevy-based 2D scene runtime where scenes are declared in TOML and instantiated by an engine layer.
 
-The intended end state is an umbrella capability set that supports:
+## Intent
 
-- simulations (agents + physics + rule-driven world evolution)
-- games and interactive sketches
-- motion-graphics style scene choreography (timelines, transitions, text effects)
-- reusable “content packs” of scenes and assets
+Decouple content authoring from engine code so simulations, games, motion-graphics scenes, and reusable content packs can share one scene/runtime model.
 
-## Core idea
+## Ambition
 
-Bevy provides the runtime (ECS, scheduling, rendering, input integration). TOML provides authored state (scene description, parameters, bindings). The engine layer interprets TOML into a running world and manages the lifecycle (load/reset/reload, transitions, patches, timelines).
+The current README, workspace split, scene assets, and roadmap docs all point toward a broad content runtime that can sit somewhere between a game engine, simulation framework, and declarative scene player.
 
-## Repository organization
+## Current Status
 
-This repository is a Cargo workspace organized for reuse and extension:
+The repo already has apps, crates, scene/assets directories, test coverage, and roadmap structure. It reads like a serious workspace under active product shaping.
 
-- `crates/`: engine crates (libraries)
-  - `crates/flatfekt-config`: control-pane configuration loading/validation
-  - `crates/flatfekt-schema`: TOML scene schema types (format + validation; Bevy-free)
-  - `crates/flatfekt-runtime`: runtime orchestration layer (scene lifecycle; Bevy integration will live here)
-- `apps/`: runnable binaries (applications) built on top of the engine crates
-  - `apps/flatfekt-viewer`: minimal runner app (config + tracing bootstrap)
-- `docs/roadmaps/`: capability roadmaps (15 feature axes)
-- `docs/tranches/`: tranche logs (what was attempted/done per change-set)
+## Core Capabilities Or Focus Areas
 
-For architectural boundaries and layering, see `docs/architecture.md`.
+- Declarative scene/runtime approach backed by Bevy.
+- Separate application, CLI, viewer, asset, config, runtime, and schema crates.
+- Docs and roadmaps that connect implementation work to intended capabilities.
+- Scene and asset directories for content-driven development.
+- Workspace-level checks and tooling support.
 
-## Roadmaps and implementation traceability
+## Project Layout
 
-Development is tracked via:
+- `apps/flatfekt/`: primary application surface for running the flatfekt runtime.
+- `apps/flatfekt-cli/`: command-line entrypoints for scripted or headless workflows.
+- `apps/flatfekt-viewer/`: viewer-oriented app surface for inspecting scenes and content.
+- `crates/flatfekt-assets/`: asset loading and asset-domain support code.
+- `crates/flatfekt-config/`: configuration loading and normalization support.
+- `crates/flatfekt-runtime/`: core runtime logic for scene execution and simulation.
+- `crates/flatfekt-schema/`: schema/model definitions for declarative scenes.
+- `crates/flatfekt-workspace-checks/`: workspace-specific validation and consistency checks.
+- `apps/`: workspace application entrypoints and user-facing binaries.
+- `crates/`: workspace member crates grouped by subsystem.
+- `docs/`: project documentation, reference material, and roadmap notes.
+- `flatfekt/`: project-specific content or application assets grouped under the product name.
+- `scenes/`: scene definitions and content files consumed by the runtime.
+- `scripts/`: helper scripts for development, validation, or release workflows.
+- `src/`: Rust source for the main crate or application entrypoint.
+- `tests/`: automated tests, fixtures, or parity scenarios.
+- `Cargo.toml`: crate or workspace manifest and the first place to check for package structure.
 
-- Roadmaps: `docs/roadmaps/`
-- Tranches (per change-set): `docs/tranches/`
+## Setup And Requirements
 
-Roadmaps define the work; tranches record each requested set of changes. If you want to understand what exists and why, start with the roadmaps, then read the tranche history.
+- Rust toolchain.
+- Any graphics/audio dependencies required by Bevy on the local platform.
+- Project scene and asset files for meaningful runs.
 
-## Configuration
-
-The project uses a centralized TOML control pane (planned as `flatfekt.toml`) to capture tunables and operational decisions such as:
-
-- scene entrypoints and asset roots
-- logging levels/filters
-- feature flags (e.g., hot reload, optional subsystems)
-- simulation/timeline stepping policy
-
-The exact surface area is tracked in the roadmaps; the intent is to avoid scattering policy and “magic numbers” across code.
-
-## Observability
-
-`flatfekt` uses structured logging via `tracing`. Subsystem boundaries are expected to emit spans/events with enough context to diagnose load failures, schema issues, lifecycle transitions, and simulation/timeline behavior.
-
-## Build
-
-Build everything in the workspace:
+## Build / Run / Test Commands
 
 ```bash
-cargo build
+cargo build --workspace
+cargo test --workspace
+cargo run -p flatfekt
 ```
 
-Format, lint, and test:
+## Notes, Limitations, Or Known Gaps
 
-```bash
-cargo fmt
-cargo clippy
-cargo test
-```
+- This is a workspace-shaped platform project, so not every crate is equally user-facing.
+- The TOML scene model is central to the repo's design identity.
 
-Run the CLI tool:
+## Next Steps Or Roadmap Hints
 
-```bash
-cargo run
-```
-
-Run the viewer app:
-
-```bash
-cargo run -p flatfekt-viewer
-```
-
-Environment variables:
-
-- `FLATFEKT_CONFIG`: override the path to the control-pane config file
-
-Default config path:
-
-- `.config/flatfekt/flatfekt.toml`
+- Keep the schema/runtime boundary explicit as more content types are added.
+- Use the viewer and CLI apps to prove the runtime is reusable rather than app-specific.
