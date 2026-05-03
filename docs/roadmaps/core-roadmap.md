@@ -40,6 +40,7 @@ Define the project constitution: workspace boundaries, dependency rules, determi
 ### M1 — conventions enforced in code
 - [x] Add `deny`/`warn` lints in `Cargo.toml` or `.cargo/config.toml` (minimal, practical)
 - [x] Add `cargo fmt` + `cargo clippy` + `cargo test` command set in root `README.md`
+- [x] Expand root `README.md` with workspace overview, project layout, control-pane paths, and runtime/export workflows
 - [x] Add a small “engine bootstrap” app demonstrating config load + tracing init + scene load
 
 ### M2 — determinism and stability
